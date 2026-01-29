@@ -119,6 +119,44 @@ export async function mediaRoutes(app: FastifyInstance) {
         return res;
       }
 
+      // For video: stream with range request support
+      if (isVideo) {
+        const rangeHeader = request.headers.range;
+        const fetchHeaders: Record<string, string> = { ...headers };
+        if (rangeHeader) {
+          fetchHeaders['Range'] = rangeHeader;
+        }
+
+        const response = await safeFetch(targetUrl, { headers: fetchHeaders });
+
+        if (!response.ok && response.status !== 206) {
+          return reply.status(502).send({
+            error: 'Upstream Error',
+            message: `Source returned HTTP ${response.status}`,
+          });
+        }
+
+        const contentType = response.headers.get('content-type') || 'video/mp4';
+        const contentLength = response.headers.get('content-length');
+        const contentRange = response.headers.get('content-range');
+        const acceptRanges = response.headers.get('accept-ranges');
+
+        reply.header('Content-Type', contentType);
+        reply.header('Cache-Control', 'public, max-age=300');
+        if (contentLength) reply.header('Content-Length', contentLength);
+        if (contentRange) reply.header('Content-Range', contentRange);
+        if (acceptRanges) reply.header('Accept-Ranges', acceptRanges);
+        else reply.header('Accept-Ranges', 'bytes');
+
+        reply.status(response.status); // 200 or 206
+        const body = response.body;
+        if (body) {
+          return reply.send(body);
+        }
+        return reply.send(Buffer.from(await response.arrayBuffer()));
+      }
+
+      // For images: buffer and cache
       const response = await safeFetch(targetUrl, { headers });
 
       if (!response.ok) {
@@ -128,7 +166,7 @@ export async function mediaRoutes(app: FastifyInstance) {
         });
       }
 
-      let contentType = response.headers.get('content-type') || (isVideo ? 'video/mp4' : 'image/jpeg');
+      let contentType = response.headers.get('content-type') || 'image/jpeg';
       let buffer = Buffer.from(await response.arrayBuffer());
 
       // If the "original" URL returned HTML instead of an image, fall back to thumbnail
@@ -143,10 +181,8 @@ export async function mediaRoutes(app: FastifyInstance) {
         }
       }
 
-      // Cache non-video content only (videos are too large)
-      if (!isVideo) {
-        proxyCache.set(cacheKey, { data: buffer, contentType, fetchedAt: Date.now() });
-      }
+      // Cache image content
+      proxyCache.set(cacheKey, { data: buffer, contentType, fetchedAt: Date.now() });
 
       // Evict old entries periodically
       if (proxyCache.size > 500) {
