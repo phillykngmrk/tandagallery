@@ -59,6 +59,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUser();
   }, []);
 
+  // Proactively refresh the access token before it expires (every 12 min)
+  // This prevents the feed's optional auth from silently failing on expired tokens,
+  // which would cause isLiked/isFavorited to return null.
+  useEffect(() => {
+    if (!user) return;
+    const REFRESH_INTERVAL = 12 * 60 * 1000; // 12 minutes
+    const interval = setInterval(async () => {
+      try {
+        await authApi.refresh();
+      } catch {
+        // Refresh failed — session expired
+        setUser(null);
+      }
+    }, REFRESH_INTERVAL);
+    return () => clearInterval(interval);
+  }, [user]);
+
   const login = useCallback(async (email: string, password: string) => {
     const response = await authApi.login(email, password);
     setUser({

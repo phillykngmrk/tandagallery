@@ -12,6 +12,8 @@ import { feedRoutes } from './modules/feed/feed.routes.js';
 import { mediaRoutes } from './modules/media/media.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { adminRoutes } from './modules/admin/admin.routes.js';
+import { reportRoutes } from './modules/reports/reports.routes.js';
+import { meRoutes } from './modules/me/me.routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -106,6 +108,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(feedRoutes, { prefix: '/api/v1/feed' });
   await app.register(mediaRoutes, { prefix: '/api/v1/media' });
   await app.register(adminRoutes, { prefix: '/api/v1/admin' });
+  await app.register(reportRoutes, { prefix: '/api/v1/reports' });
+  await app.register(meRoutes, { prefix: '/api/v1/me' });
 
   // Global error handler
   app.setErrorHandler((err, request, reply) => {
