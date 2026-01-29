@@ -4,6 +4,8 @@ import { db } from '../../lib/db.js';
 import { sources, threads, ingestRuns, mediaItems, users, comments, reports, blockedMedia, moderationActions } from '@aggragif/db/schema';
 import { eq, desc, and, isNull, sql, count, gte, lte } from 'drizzle-orm';
 import { getProxyUrls } from '../../lib/proxy-urls.js';
+import { isR2Enabled, downloadAndUploadToR2 } from '../../lib/r2.js';
+import { buildSourceHeaders, safeFetchMedia, isAllowedUrl } from '../../lib/media-fetcher.js';
 import {
   getQueueStats,
   triggerIngestionNow,
@@ -650,6 +652,120 @@ export async function adminRoutes(app: FastifyInstance) {
           ? pageItems[pageItems.length - 1]!.createdAt.toISOString()
           : null,
       },
+    };
+  });
+
+  // ── R2 cache backfill ─────────────────────────────────────────────
+  // POST /admin/backfill-r2
+  // Downloads uncached media and uploads to R2 in batches.
+  // Runs in background — returns immediately.
+  let backfillRunning = false;
+
+  app.post('/backfill-r2', async (request, reply) => {
+    if (!isR2Enabled()) {
+      return reply.status(400).send({ error: 'R2 not configured' });
+    }
+    if (backfillRunning) {
+      return reply.status(409).send({ error: 'Backfill already running' });
+    }
+
+    backfillRunning = true;
+    const BATCH = 50;
+    const CONCURRENCY = 5;
+    let processed = 0;
+    let cached = 0;
+    let failed = 0;
+
+    // Run in background
+    (async () => {
+      try {
+        let offset = 0;
+        while (true) {
+          const items = await db.query.mediaItems.findMany({
+            where: (m, { and, isNull }) => and(
+              isNull(m.deletedAt),
+              sql`NOT (${m.mediaUrls}::jsonb ? 'cdnOriginal')`,
+            ),
+            columns: { id: true, mediaUrls: true },
+            with: {
+              thread: {
+                columns: { sourceId: true },
+                with: { source: { columns: { id: true, scraperConfig: true } } },
+              },
+            },
+            limit: BATCH,
+          });
+
+          if (items.length === 0) break;
+
+          // Process in chunks of CONCURRENCY
+          for (let i = 0; i < items.length; i += CONCURRENCY) {
+            const chunk = items.slice(i, i + CONCURRENCY);
+            await Promise.allSettled(chunk.map(async (item) => {
+              const urls = item.mediaUrls as { original: string; thumbnail?: string };
+              const sc = item.thread?.source?.scraperConfig as { headers?: Record<string, string> } | null;
+
+              const cdnUpdates: Record<string, string> = {};
+
+              // Original
+              if (urls.original && isAllowedUrl(urls.original)) {
+                const headers = buildSourceHeaders(urls.original, sc);
+                const cdnUrl = await downloadAndUploadToR2(
+                  item.id, 'original', urls.original,
+                  (url) => safeFetchMedia(url, headers),
+                );
+                if (cdnUrl) cdnUpdates.cdnOriginal = cdnUrl;
+              }
+
+              // Thumbnail
+              if (urls.thumbnail && isAllowedUrl(urls.thumbnail)) {
+                const headers = buildSourceHeaders(urls.thumbnail, sc);
+                const cdnUrl = await downloadAndUploadToR2(
+                  item.id, 'thumb', urls.thumbnail,
+                  (url) => safeFetchMedia(url, headers),
+                );
+                if (cdnUrl) cdnUpdates.cdnThumbnail = cdnUrl;
+              }
+
+              if (Object.keys(cdnUpdates).length > 0) {
+                await db.update(mediaItems)
+                  .set({ mediaUrls: sql`${mediaItems.mediaUrls} || ${JSON.stringify(cdnUpdates)}::jsonb` })
+                  .where(eq(mediaItems.id, item.id))
+                  .execute();
+                cached++;
+              } else {
+                failed++;
+              }
+              processed++;
+            }));
+          }
+
+          console.log(`[Backfill] Progress: ${processed} processed, ${cached} cached, ${failed} failed`);
+        }
+
+        console.log(`[Backfill] Done: ${processed} processed, ${cached} cached, ${failed} failed`);
+      } catch (err) {
+        console.error('[Backfill] Error:', err);
+      } finally {
+        backfillRunning = false;
+      }
+    })();
+
+    return { status: 'started', message: 'R2 backfill started in background' };
+  });
+
+  app.get('/backfill-r2/status', async () => {
+    const [result] = await db.execute(sql`
+      SELECT
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE media_urls::text LIKE '%cdnOriginal%') AS cached
+      FROM media_items WHERE deleted_at IS NULL
+    `);
+    return {
+      running: backfillRunning,
+      total: Number(result.total),
+      cached: Number(result.cached),
+      uncached: Number(result.total) - Number(result.cached),
     };
   });
 }
