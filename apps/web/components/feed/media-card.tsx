@@ -18,17 +18,33 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
   const cardRef = useRef<HTMLElement>(null);
   const [isVisible, setIsVisible] = useState(false);
 
-  // Only load video when card is in/near viewport
+  // Gifs and short videos (<10s) autoplay; longer videos play on hover
+  const isPlayable = item.type === 'video' || item.type === 'gif';
+  const isShort = item.type === 'gif' || (item.duration != null && item.duration < 10);
+  const shouldAutoplay = isPlayable && isShort;
+
+  // Track viewport visibility
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => setIsVisible(entry.isIntersecting),
-      { rootMargin: '600px' }
+      { rootMargin: '800px' }
     );
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  // Play/pause autoplay videos based on visibility
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid || !shouldAutoplay) return;
+    if (isVisible) {
+      vid.play().catch(() => {});
+    } else {
+      vid.pause();
+    }
+  }, [isVisible, shouldAutoplay]);
 
   // Format index with leading zeros [01], [02], etc.
   const formattedIndex = `[${String(index + 1).padStart(2, '0')}]`;
@@ -41,15 +57,9 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Gifs and short videos (<10s) autoplay; longer videos play on hover
-  const isPlayable = item.type === 'video' || item.type === 'gif';
-  const isShort = item.type === 'gif' || (item.duration != null && item.duration < 10);
-  const shouldAutoplay = isPlayable && isShort;
-
   const handleMouseEnter = () => {
     setIsHovered(true);
     if (videoRef.current && isPlayable && !shouldAutoplay) {
-      videoRef.current.load();
       videoRef.current.play().catch(() => {});
     }
   };
@@ -96,11 +106,12 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
           unoptimized
         />
 
-        {/* Video preview: autoplay for short clips, hover-play for longer videos */}
-        {isPlayable && isVisible && (
+        {/* Video preview: always mounted for playable items, src set lazily */}
+        {isPlayable && (
           <video
             ref={videoRef}
             className="media-card-image object-cover"
+            src={isVisible ? item.mediaUrl : undefined}
             style={{
               position: 'absolute',
               inset: 0,
@@ -113,16 +124,8 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
             muted
             loop
             playsInline
-            autoPlay={shouldAutoplay}
-            preload={shouldAutoplay ? 'auto' : 'none'}
-            onCanPlay={() => {
-              if ((shouldAutoplay || isHovered) && videoRef.current) {
-                videoRef.current.play().catch(() => {});
-              }
-            }}
-          >
-            <source src={item.mediaUrl} type="video/mp4" />
-          </video>
+            preload="metadata"
+          />
         )}
 
         {/* Loading skeleton */}
