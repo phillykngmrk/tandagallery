@@ -15,6 +15,7 @@
     "db:studio": "pnpm --filter @aggragif/db studio"
   },
   "devDependencies": {
+    "next": "^15.1.4",
     "typescript": "^5.7.3"
   },
   "engines": {
