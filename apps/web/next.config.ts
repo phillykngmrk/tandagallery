@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
         hostname: '**',
       },
     ],
+    localPatterns: [
+      {
+        pathname: '/api/**',
+      },
+    ],
   },
   async rewrites() {
     const apiUrl = process.env.API_URL;
