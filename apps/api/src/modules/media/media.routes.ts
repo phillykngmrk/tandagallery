@@ -8,6 +8,10 @@ import { getProxyUrls } from '../../lib/proxy-urls.js';
 const proxyCache = new Map<string, { data: Buffer; contentType: string; fetchedAt: number }>();
 const PROXY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// In-memory view deduplication (key: "mediaId:ip" -> timestamp)
+const viewedRecently = new Map<string, number>();
+const VIEW_DEDUP_TTL = 15 * 60 * 1000; // 15 minutes
+
 export async function mediaRoutes(app: FastifyInstance) {
   /**
    * GET /media/proxy/:id
@@ -185,6 +189,14 @@ export async function mediaRoutes(app: FastifyInstance) {
         }
       }
 
+      // If we still have HTML after fallback, return an error instead of serving HTML as an image
+      if (contentType.includes('text/html')) {
+        return reply.status(502).send({
+          error: 'Upstream Error',
+          message: 'Source returned HTML instead of media content',
+        });
+      }
+
       // Cache image content
       proxyCache.set(cacheKey, { data: buffer, contentType, fetchedAt: Date.now() });
 
@@ -257,12 +269,27 @@ export async function mediaRoutes(app: FastifyInstance) {
       isFavorited = !!favorite;
     }
 
-    // Increment view count (fire and forget)
-    db.update(mediaItems)
-      .set({ viewCount: sql`${mediaItems.viewCount} + 1` })
-      .where(eq(mediaItems.id, id))
-      .execute()
-      .catch(() => {}); // Ignore errors
+    // Increment view count with IP-based deduplication (fire and forget)
+    const viewerIp = request.ip || 'unknown';
+    const viewKey = `${id}:${viewerIp}`;
+    const now = Date.now();
+    const lastViewed = viewedRecently.get(viewKey);
+
+    if (!lastViewed || now - lastViewed > VIEW_DEDUP_TTL) {
+      viewedRecently.set(viewKey, now);
+      db.update(mediaItems)
+        .set({ viewCount: sql`${mediaItems.viewCount} + 1` })
+        .where(eq(mediaItems.id, id))
+        .execute()
+        .catch(() => {});
+
+      // Evict stale entries periodically
+      if (viewedRecently.size > 10000) {
+        for (const [key, ts] of viewedRecently) {
+          if (now - ts > VIEW_DEDUP_TTL) viewedRecently.delete(key);
+        }
+      }
+    }
 
     const mediaUrls = item.mediaUrls as { original: string; thumbnail?: string; preview?: string };
     const proxyUrls = getProxyUrls(item.id, mediaUrls);

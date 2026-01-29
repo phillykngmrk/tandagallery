@@ -24,7 +24,10 @@ export function getProxyUrls(
   mediaUrls: { original: string; thumbnail?: string },
   apiBase?: string,
 ): { mediaUrl: string; thumbnailUrl: string } {
-  const base = apiBase || `${process.env.API_PUBLIC_URL || ''}/api/v1/media`;
+  if (!apiBase && !process.env.API_PUBLIC_URL) {
+    throw new Error('API_PUBLIC_URL environment variable is required for proxy URL generation');
+  }
+  const base = apiBase || `${process.env.API_PUBLIC_URL}/api/v1/media`;
 
   const originalUrl = mediaUrls.original;
   const thumbUrl = mediaUrls.thumbnail || originalUrl;

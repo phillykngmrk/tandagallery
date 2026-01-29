@@ -10,7 +10,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
 
   // Redis
-  REDIS_URL: z.string().default('redis://localhost:6379'),
+  REDIS_URL: z.string(),
 
   // JWT
   JWT_SECRET: z.string().min(32),
@@ -22,7 +22,10 @@ const envSchema = z.object({
   API_HOST: z.string().default('0.0.0.0'),
 
   // CORS
-  FRONTEND_URL: z.string().default('http://localhost:3000'),
+  FRONTEND_URL: z.string(),
+
+  // Public-facing API base URL (used for constructing proxy URLs returned to clients)
+  API_PUBLIC_URL: z.string().optional(),
 
   // Ingestion
   INGEST_POLL_INTERVAL_MS: z.coerce.number().default(1200000), // 20 minutes

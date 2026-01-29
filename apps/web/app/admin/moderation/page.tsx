@@ -58,7 +58,7 @@ interface MediaResponse {
 
 async function fetchReports(status: ReportStatus): Promise<ReportsResponse> {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/admin/reports?status=${status}&limit=50`,
+    `${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/admin/reports?status=${status}&limit=50`,
     {
       credentials: 'include',
     }
@@ -77,7 +77,7 @@ async function resolveReport(data: {
   action?: string;
 }) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/admin/reports/${data.reportId}/resolve`,
+    `${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/admin/reports/${data.reportId}/resolve`,
     {
       method: 'POST',
       credentials: 'include',
@@ -99,7 +99,7 @@ async function resolveReport(data: {
 }
 
 async function fetchMedia(cursor?: string): Promise<MediaResponse> {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
   const params = new URLSearchParams({ limit: '50' });
   if (cursor) params.set('cursor', cursor);
   const res = await fetch(`${apiBase}/admin/media?${params}`, { credentials: 'include' });
@@ -108,7 +108,7 @@ async function fetchMedia(cursor?: string): Promise<MediaResponse> {
 }
 
 async function deleteMediaItem(id: string): Promise<void> {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
   const res = await fetch(`${apiBase}/admin/media/${id}`, {
     method: 'DELETE',
     credentials: 'include',

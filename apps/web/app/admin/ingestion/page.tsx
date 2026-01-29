@@ -64,7 +64,7 @@ interface RunMediaItem {
 }
 
 async function fetchRunMedia(runId: string): Promise<RunMediaItem[]> {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
   const res = await fetch(`${apiBase}/admin/ingestion/runs/${runId}/media`, {
     credentials: 'include',
   });
@@ -74,7 +74,7 @@ async function fetchRunMedia(runId: string): Promise<RunMediaItem[]> {
 }
 
 async function deleteMediaItem(id: string): Promise<void> {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
   const res = await fetch(`${apiBase}/admin/media/${id}`, {
     method: 'DELETE',
     credentials: 'include',
@@ -87,7 +87,7 @@ async function fetchIngestionStatus(): Promise<{
   sources: Source[];
   recentRuns: IngestRun[];
 }> {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
   // Fetch status, sources, and runs in parallel
   const [statusRes, sourcesRes, runsRes] = await Promise.all([
@@ -171,7 +171,7 @@ async function fetchIngestionStatus(): Promise<{
 
 async function fetchSourceThreads(sourceId: string): Promise<Thread[]> {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/admin/ingestion/threads?sourceId=${sourceId}`,
+    `${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/admin/ingestion/threads?sourceId=${sourceId}`,
     {
       credentials: 'include',
     }
@@ -204,7 +204,7 @@ async function fetchSourceThreads(sourceId: string): Promise<Thread[]> {
 }
 
 async function triggerIngestion(_sourceId: string, threadId?: string) {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
   // Use thread-specific endpoint if threadId provided, otherwise trigger all
   const endpoint = threadId
@@ -228,7 +228,7 @@ async function triggerIngestion(_sourceId: string, threadId?: string) {
 
 async function toggleSource(sourceId: string, enabled: boolean) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/admin/ingestion/sources/${sourceId}`,
+    `${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/admin/ingestion/sources/${sourceId}`,
     {
       method: 'PATCH',
       credentials: 'include',
@@ -254,7 +254,7 @@ async function createSource(data: {
   scraperConfig?: ScraperConfig;
 }) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/admin/ingestion/sources`,
+    `${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/admin/ingestion/sources`,
     {
       method: 'POST',
       credentials: 'include',
@@ -289,7 +289,7 @@ async function createThread(data: {
   priority?: number;
 }) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/admin/ingestion/threads`,
+    `${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/admin/ingestion/threads`,
     {
       method: 'POST',
       credentials: 'include',

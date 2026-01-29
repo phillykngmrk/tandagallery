@@ -21,6 +21,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const [mediaError, setMediaError] = useState(false);
 
   const { data: item, isLoading, isError, error } = useQuery({
     queryKey: ['media', id],
@@ -34,6 +35,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
       setLikeCount(item.likeCount);
       setIsLiked(item.isLiked ?? false);
       setIsFavorited(item.isFavorited ?? false);
+      setMediaError(false);
     }
   }, [item]);
 
@@ -153,15 +155,28 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
           <div className="max-w-5xl mx-auto">
             {/* Media */}
             <div className={`video-container mb-8 ${isVideo ? 'aspect-video' : 'relative flex items-center justify-center'}`} style={!isVideo ? { minHeight: '50vh', maxHeight: '85vh' } : undefined}>
-              {isVideo ? (
+              {mediaError ? (
+                <div className="flex flex-col items-center justify-center gap-4 py-20 text-[var(--muted)]">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-caption">Failed to load media</p>
+                  <button
+                    onClick={() => setMediaError(false)}
+                    className="btn text-xs"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : isVideo ? (
                 <video
                   className="w-full h-full object-contain"
-
                   controls
                   autoPlay
                   loop
                   muted
                   playsInline
+                  onError={() => setMediaError(true)}
                 >
                   <source src={item.mediaUrl} type="video/mp4" />
                 </video>
@@ -171,6 +186,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
                   alt={item.title || 'Media item'}
                   className="max-w-full max-h-[85vh] object-contain"
                   loading="eager"
+                  onError={() => setMediaError(true)}
                 />
               )}
             </div>

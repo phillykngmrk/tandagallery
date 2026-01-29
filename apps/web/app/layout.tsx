@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   keywords: ['gifs', 'videos', 'motion', 'animation', 'curated', 'short videos', 'memes'],
   authors: [{ name: 'Tits & Ass Gallery' }],
   creator: 'Tits & Ass Gallery',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.tandagallery.com'),
   openGraph: {
     type: 'website',
     locale: 'en_US',

@@ -14,7 +14,7 @@ interface DashboardStats {
 
 async function fetchDashboardStats(): Promise<DashboardStats> {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/admin/dashboard/stats`,
+    `${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/admin/dashboard/stats`,
     {
       credentials: 'include',
     }

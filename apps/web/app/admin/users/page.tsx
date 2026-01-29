@@ -34,7 +34,7 @@ async function fetchUsers(params: { search?: string; cursor?: string }): Promise
   searchParams.set('limit', '50');
 
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/admin/users?${searchParams.toString()}`,
+    `${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/admin/users?${searchParams.toString()}`,
     {
       credentials: 'include',
     }
@@ -49,7 +49,7 @@ async function fetchUsers(params: { search?: string; cursor?: string }): Promise
 
 async function moderateUser(data: { userId: string; action: 'ban' | 'unban' | 'warn' | 'change_role'; role?: UserRole }) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/admin/users/${data.userId}/moderate`,
+    `${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/admin/users/${data.userId}/moderate`,
     {
       method: 'POST',
       credentials: 'include',

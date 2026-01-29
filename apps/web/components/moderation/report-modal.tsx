@@ -30,7 +30,7 @@ async function submitReport(data: {
   details?: string;
 }) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/reports`,
+    `${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/reports`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
