@@ -8,6 +8,7 @@ const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Geck
 const ALLOWED_HOSTS = [
   'jpg6.su',
   'simp6.selti-delivery.ru',
+  'abwcandyshop.com',
   'redgifs.com',
   'thumbs4.redgifs.com',
   'thumbs44.redgifs.com',
