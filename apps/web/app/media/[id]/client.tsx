@@ -31,7 +31,8 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
-  // Sync state with fetched data
+  // Sync state with fetched data only when item ID changes (not on every refetch)
+  const itemId = item?.id;
   useEffect(() => {
     if (item) {
       setLikeCount(item.likeCount);
@@ -39,7 +40,8 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
       setIsFavorited(item.isFavorited ?? false);
       setMediaError(false);
     }
-  }, [item]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemId]);
 
   // Like mutation
   const likeMutation = useMutation({
@@ -57,7 +59,11 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
     onSuccess: (data) => {
       setIsLiked(data.isLiked);
       setLikeCount(data.likeCount);
-      // Update feed cache in-place instead of refetching (avoids stale data overwriting optimistic update)
+      // Update detail query cache so refetch won't overwrite local state
+      queryClient.setQueryData(['media', id], (old: Record<string, unknown> | undefined) =>
+        old ? { ...old, isLiked: data.isLiked, likeCount: data.likeCount } : old
+      );
+      // Update feed cache in-place
       queryClient.setQueriesData<{ pages: { items: { id: string; isLiked: boolean | null; likeCount: number }[] }[] }>(
         { queryKey: ['feed'] },
         (old) => {
@@ -89,6 +95,9 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
     },
     onSuccess: (data) => {
       setIsFavorited(data.isFavorited);
+      queryClient.setQueryData(['media', id], (old: Record<string, unknown> | undefined) =>
+        old ? { ...old, isFavorited: data.isFavorited } : old
+      );
       queryClient.invalidateQueries({ queryKey: ['favorites'] });
     },
   });

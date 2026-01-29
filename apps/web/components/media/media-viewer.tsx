@@ -49,7 +49,8 @@ export function MediaViewer({
   const isOpen = item !== null;
   const isVideo = item?.type === 'video' || item?.type === 'gif';
 
-  // Reset state when item changes
+  // Reset state when navigating to a different item (by ID), not on every prop reference change
+  const itemId = item?.id;
   useEffect(() => {
     if (item) {
       setLikeCount(item.likeCount);
@@ -58,7 +59,8 @@ export function MediaViewer({
     } else {
       setIsFullscreen(false);
     }
-  }, [item]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemId]);
 
   // Fullscreen mouse-move show/hide controls
   const handleMouseMove = useCallback(() => {
