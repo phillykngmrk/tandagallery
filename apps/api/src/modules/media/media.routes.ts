@@ -57,6 +57,7 @@ export async function mediaRoutes(app: FastifyInstance) {
     if (cached && Date.now() - cached.fetchedAt < PROXY_CACHE_TTL) {
       reply.header('Content-Type', cached.contentType);
       reply.header('Cache-Control', 'public, max-age=300');
+      reply.header('Access-Control-Allow-Origin', '*');
       reply.header('X-Proxy-Cache', 'HIT');
       return reply.send(cached.data);
     }
@@ -197,6 +198,7 @@ export async function mediaRoutes(app: FastifyInstance) {
 
       reply.header('Content-Type', contentType);
       reply.header('Cache-Control', 'public, max-age=300');
+      reply.header('Access-Control-Allow-Origin', '*');
       reply.header('X-Proxy-Cache', 'MISS');
       return reply.send(buffer);
     } catch (error) {
