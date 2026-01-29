@@ -60,7 +60,7 @@ export function InfiniteFeed({ type = 'recent', mediaType, period, tag }: Infini
 
     observerRef.current = new IntersectionObserver(handleObserver, {
       root: null,
-      rootMargin: '800px',
+      rootMargin: '1200px',
       threshold: 0,
     });
 

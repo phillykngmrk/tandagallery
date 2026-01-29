@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import type { MediaItemSummary } from '@aggragif/shared';
+import { useVisibility } from '@/hooks/use-visibility';
 
 interface MediaCardProps {
   item: MediaItemSummary;
@@ -15,25 +16,12 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [imgSrc, setImgSrc] = useState(item.thumbnailUrl);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const cardRef = useRef<HTMLElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
+  const [cardRef, isVisible] = useVisibility<HTMLElement>();
 
   // Gifs and short videos (<10s) autoplay; longer videos play on hover
   const isPlayable = item.type === 'video' || item.type === 'gif';
   const isShort = item.type === 'gif' || (item.duration != null && item.duration < 10);
   const shouldAutoplay = isPlayable && isShort;
-
-  // Track viewport visibility
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsVisible(entry.isIntersecting),
-      { rootMargin: '800px' }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   // Play/pause autoplay videos based on visibility
   useEffect(() => {
@@ -124,7 +112,7 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
             muted
             loop
             playsInline
-            preload="metadata"
+            preload={isVisible ? 'metadata' : 'none'}
           />
         )}
 
