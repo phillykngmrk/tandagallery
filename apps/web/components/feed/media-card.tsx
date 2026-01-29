@@ -27,13 +27,14 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const isAnimated = item.type === 'video' || item.type === 'gif';
-  const isGif = item.type === 'gif';
+  // Gifs and short videos (<10s) autoplay; longer videos play on hover
+  const isPlayable = item.type === 'video' || item.type === 'gif';
+  const isShort = item.type === 'gif' || (item.duration != null && item.duration < 10);
+  const shouldAutoplay = isPlayable && isShort;
 
-  // Handle hover for video preview
   const handleMouseEnter = () => {
     setIsHovered(true);
-    if (videoRef.current && isAnimated && !isGif) {
+    if (videoRef.current && isPlayable && !shouldAutoplay) {
       videoRef.current.load();
       videoRef.current.play().catch(() => {});
     }
@@ -41,7 +42,7 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
 
   const handleMouseLeave = () => {
     setIsHovered(false);
-    if (videoRef.current && !isGif) {
+    if (videoRef.current && !shouldAutoplay) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
     }
@@ -80,8 +81,8 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
           unoptimized
         />
 
-        {/* Video preview: autoplay for gifs, hover-play for videos */}
-        {isAnimated && (
+        {/* Video preview: autoplay for short clips, hover-play for longer videos */}
+        {isPlayable && (
           <video
             ref={videoRef}
             className="media-card-image object-cover"
@@ -90,17 +91,17 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
               inset: 0,
               width: '100%',
               height: '100%',
-              opacity: isGif || isHovered ? 1 : 0,
+              opacity: shouldAutoplay || isHovered ? 1 : 0,
               transition: 'opacity 0.2s',
               pointerEvents: 'none',
             }}
             muted
             loop
             playsInline
-            autoPlay={isGif}
-            preload={isGif ? 'auto' : 'none'}
+            autoPlay={shouldAutoplay}
+            preload={shouldAutoplay ? 'auto' : 'none'}
             onCanPlay={() => {
-              if ((isGif || isHovered) && videoRef.current) {
+              if ((shouldAutoplay || isHovered) && videoRef.current) {
                 videoRef.current.play().catch(() => {});
               }
             }}
