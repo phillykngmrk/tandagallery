@@ -755,12 +755,13 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   app.get('/backfill-r2/status', async () => {
-    const [result] = await db.execute(sql`
+    const rows = await db.execute(sql`
       SELECT
         COUNT(*) AS total,
         COUNT(*) FILTER (WHERE media_urls::text LIKE '%cdnOriginal%') AS cached
       FROM media_items WHERE deleted_at IS NULL
     `);
+    const result = rows.rows[0] as { total: string; cached: string };
     return {
       running: backfillRunning,
       total: Number(result.total),
