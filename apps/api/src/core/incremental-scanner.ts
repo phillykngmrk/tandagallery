@@ -105,6 +105,14 @@ export class IncrementalScanner {
         return result;
       }
 
+      // If we had failures but passed the cooldown, reset and start fresh
+      if (checkpoint.consecutiveFailures > 0) {
+        console.log(`[Scanner] Resetting ${checkpoint.consecutiveFailures} failures for thread ${threadId} after cooldown`);
+        await checkpointManager.resetFailures(threadId);
+        checkpoint.consecutiveFailures = 0;
+        checkpoint.catchUpCursor = null;
+      }
+
       // Determine starting page
       const startPage = checkpointManager.getStartingPage(checkpoint);
 
@@ -124,8 +132,9 @@ export class IncrementalScanner {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-      // Update failure count
+      // Update failure count and clear stuck catch-up cursor so next retry starts fresh
       await checkpointManager.updateCheckpointFailure(threadId);
+      await checkpointManager.clearCatchUpCursor(threadId);
 
       const result: IngestRunResult = {
         status: 'failed',

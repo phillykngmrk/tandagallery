@@ -260,10 +260,39 @@ export class CheckpointManager {
   }
 
   /**
-   * Check if thread should be skipped due to too many failures
+   * Check if thread should be skipped due to too many failures.
+   * Auto-resets after a cooldown period (1 hour) so threads can recover
+   * from transient source errors.
    */
   shouldSkipDueToFailures(checkpoint: CheckpointState, maxFailures = 5): boolean {
-    return checkpoint.consecutiveFailures >= maxFailures;
+    if (checkpoint.consecutiveFailures < maxFailures) {
+      return false;
+    }
+
+    // Auto-reset if last run was over 1 hour ago
+    const COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+    if (checkpoint.lastRunAt) {
+      const timeSinceLastRun = Date.now() - checkpoint.lastRunAt.getTime();
+      if (timeSinceLastRun >= COOLDOWN_MS) {
+        return false; // Allow retry — the caller will reset failures on success
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Reset failure count and clear stuck catch-up cursor so a thread
+   * can start fresh from the latest page.
+   */
+  async resetFailures(threadId: string): Promise<void> {
+    await db.update(checkpoints)
+      .set({
+        consecutiveFailures: 0,
+        catchUpCursor: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(checkpoints.threadId, threadId));
   }
 }
 
