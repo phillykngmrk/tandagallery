@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import type { MediaItemSummary } from '@aggragif/shared';
 
@@ -15,6 +15,20 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [imgSrc, setImgSrc] = useState(item.thumbnailUrl);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const cardRef = useRef<HTMLElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  // Only load video when card is in/near viewport
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // Format index with leading zeros [01], [02], etc.
   const formattedIndex = `[${String(index + 1).padStart(2, '0')}]`;
@@ -50,6 +64,7 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
 
   return (
     <article
+      ref={cardRef}
       className="media-card"
       onClick={() => onSelect(item)}
       onMouseEnter={handleMouseEnter}
@@ -82,7 +97,7 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
         />
 
         {/* Video preview: autoplay for short clips, hover-play for longer videos */}
-        {isPlayable && (
+        {isPlayable && isVisible && (
           <video
             ref={videoRef}
             className="media-card-image object-cover"
