@@ -104,8 +104,22 @@ export function MediaViewer({
     onSuccess: (data) => {
       setIsLiked(data.isLiked);
       setLikeCount(data.likeCount);
-      // Invalidate feed queries to update counts
-      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      // Update feed cache in-place instead of refetching (avoids stale data overwriting optimistic update)
+      queryClient.setQueriesData<{ pages: { items: { id: string; isLiked: boolean | null; likeCount: number }[] }[] }>(
+        { queryKey: ['feed'] },
+        (old) => {
+          if (!old?.pages) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              items: page.items.map((i) =>
+                i.id === item?.id ? { ...i, isLiked: data.isLiked, likeCount: data.likeCount } : i
+              ),
+            })),
+          };
+        },
+      );
     },
   });
 

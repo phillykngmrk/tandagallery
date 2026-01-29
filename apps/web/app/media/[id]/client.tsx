@@ -57,7 +57,22 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
     onSuccess: (data) => {
       setIsLiked(data.isLiked);
       setLikeCount(data.likeCount);
-      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      // Update feed cache in-place instead of refetching (avoids stale data overwriting optimistic update)
+      queryClient.setQueriesData<{ pages: { items: { id: string; isLiked: boolean | null; likeCount: number }[] }[] }>(
+        { queryKey: ['feed'] },
+        (old) => {
+          if (!old?.pages) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              items: page.items.map((i) =>
+                i.id === id ? { ...i, isLiked: data.isLiked, likeCount: data.likeCount } : i
+              ),
+            })),
+          };
+        },
+      );
     },
   });
 
