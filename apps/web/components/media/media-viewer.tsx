@@ -267,6 +267,7 @@ export function MediaViewer({
       <video
         key={item.id}
         ref={videoRef}
+        crossOrigin="anonymous"
         className="w-full h-full object-contain"
         onClick={togglePlay}
         onTimeUpdate={handleTimeUpdate}

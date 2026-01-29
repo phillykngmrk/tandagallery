@@ -83,6 +83,7 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
         {isAnimated && (
           <video
             ref={videoRef}
+            crossOrigin="anonymous"
             className="media-card-image object-cover"
             style={{
               position: 'absolute',

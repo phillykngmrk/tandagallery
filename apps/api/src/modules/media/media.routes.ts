@@ -143,6 +143,9 @@ export async function mediaRoutes(app: FastifyInstance) {
 
         reply.header('Content-Type', contentType);
         reply.header('Cache-Control', 'public, max-age=300');
+        reply.header('Access-Control-Allow-Origin', '*');
+        reply.header('Access-Control-Allow-Headers', 'Range');
+        reply.header('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length');
         if (contentLength) reply.header('Content-Length', contentLength);
         if (contentRange) reply.header('Content-Range', contentRange);
         if (acceptRanges) reply.header('Accept-Ranges', acceptRanges);
