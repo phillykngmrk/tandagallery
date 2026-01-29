@@ -4,6 +4,7 @@ import { mediaItems, likes, favorites, comments, sources } from '@aggragif/db/sc
 import { eq, and, isNull, sql } from 'drizzle-orm';
 import { getProxyUrls } from '../../lib/proxy-urls.js';
 import { isR2Enabled, uploadToR2 } from '../../lib/r2.js';
+import { isAllowedUrl, buildSourceHeaders, safeFetchMedia, correctContentType } from '../../lib/media-fetcher.js';
 
 // In-memory cache for proxied images (URL -> {data, contentType, fetchedAt})
 const proxyCache = new Map<string, { data: Buffer; contentType: string; fetchedAt: number }>();
@@ -78,61 +79,15 @@ export async function mediaRoutes(app: FastifyInstance) {
 
     // Get source headers/cookies
     const scraperConfig = item.thread?.source?.scraperConfig as { headers?: Record<string, string> } | null;
-    const headers: Record<string, string> = {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0',
-      ...(scraperConfig?.headers || {}),
-    };
-
-    // Add Referer for RedGifs URLs
-    if (targetUrl.includes('redgifs.com')) {
-      headers['Referer'] = 'https://www.redgifs.com/';
-      headers['Origin'] = 'https://www.redgifs.com';
-    }
+    const headers = buildSourceHeaders(targetUrl, scraperConfig);
 
     const isVideo = targetUrl.endsWith('.mp4') || targetUrl.endsWith('.webm');
-
-    // Validate URL to prevent SSRF — only allow known external hosts
-    const ALLOWED_HOSTS = [
-      'jpg6.su',
-      'simp6.selti-delivery.ru',
-      'redgifs.com',
-      'thumbs4.redgifs.com',
-      'thumbs44.redgifs.com',
-      'i.redd.it',
-      'i.imgur.com',
-      'preview.redd.it',
-      'v.redd.it',
-    ];
-
-    function isAllowedUrl(url: string): boolean {
-      try {
-        const parsed = new URL(url);
-        if (['localhost', '127.0.0.1', '0.0.0.0', '169.254.169.254'].includes(parsed.hostname)) return false;
-        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
-        // Check if hostname matches or is subdomain of allowed hosts
-        return ALLOWED_HOSTS.some(h => parsed.hostname === h || parsed.hostname.endsWith(`.${h}`));
-      } catch {
-        return false;
-      }
-    }
 
     if (!isAllowedUrl(targetUrl)) {
       return reply.status(403).send({ error: 'Forbidden', message: 'URL not in allowlist' });
     }
 
     try {
-      // Safe fetch with redirect validation
-      async function safeFetch(url: string, opts: RequestInit): Promise<Response> {
-        const res = await fetch(url, { ...opts, redirect: 'manual' });
-        if (res.status >= 300 && res.status < 400) {
-          const location = res.headers.get('location');
-          if (!location) throw new Error('Redirect with no location');
-          const resolved = new URL(location, url).toString();
-          if (!isAllowedUrl(resolved)) throw new Error('Redirect target not allowed');
-          return fetch(resolved, { ...opts, redirect: 'manual' });
-        }
-        return res;
-      }
 
       // Helper: upload to R2 in background and update DB with CDN URL
       function cacheToR2(buf: Buffer, ct: string) {
@@ -158,7 +113,7 @@ export async function mediaRoutes(app: FastifyInstance) {
           fetchHeaders['Range'] = rangeHeader;
         }
 
-        const response = await safeFetch(targetUrl, { headers: fetchHeaders });
+        const response = await safeFetchMedia(targetUrl, fetchHeaders);
 
         if (!response.ok && response.status !== 206) {
           return reply.status(502).send({
@@ -167,9 +122,8 @@ export async function mediaRoutes(app: FastifyInstance) {
           });
         }
 
-        // Force correct content-type for video — RedGifs "gif" items return image/gif but are actually mp4
         const rawContentType = response.headers.get('content-type') || 'video/mp4';
-        const contentType = rawContentType.startsWith('image/') ? 'video/mp4' : rawContentType;
+        const contentType = correctContentType(rawContentType, targetUrl);
         const contentLength = response.headers.get('content-length');
         const contentRange = response.headers.get('content-range');
         const acceptRanges = response.headers.get('accept-ranges');
@@ -198,7 +152,7 @@ export async function mediaRoutes(app: FastifyInstance) {
       }
 
       // For images: buffer and cache
-      const response = await safeFetch(targetUrl, { headers });
+      const response = await safeFetchMedia(targetUrl, headers);
 
       if (!response.ok) {
         return reply.status(502).send({
@@ -212,7 +166,7 @@ export async function mediaRoutes(app: FastifyInstance) {
 
       // If the "original" URL returned HTML instead of an image, fall back to thumbnail
       if (!wantThumbnail && contentType.includes('text/html') && mediaUrls.thumbnail && mediaUrls.thumbnail !== targetUrl && isAllowedUrl(mediaUrls.thumbnail)) {
-        const fallbackRes = await safeFetch(mediaUrls.thumbnail, { headers });
+        const fallbackRes = await safeFetchMedia(mediaUrls.thumbnail, headers);
         if (fallbackRes.ok) {
           const fallbackType = fallbackRes.headers.get('content-type') || 'image/jpeg';
           if (!fallbackType.includes('text/html')) {

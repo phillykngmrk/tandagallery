@@ -72,6 +72,60 @@ export async function uploadToR2(
 }
 
 /**
+ * Download media from a source URL and upload it to R2.
+ * Returns the CDN URL, or null if R2 is not configured or download fails.
+ */
+export async function downloadAndUploadToR2(
+  itemId: string,
+  variant: 'original' | 'thumb',
+  sourceUrl: string,
+  fetchFn: (url: string) => Promise<Response>,
+): Promise<string | null> {
+  if (!s3) return null;
+
+  const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+
+  try {
+    const res = await fetchFn(sourceUrl);
+    if (!res.ok) {
+      console.warn(`R2 pre-cache: HTTP ${res.status} for ${sourceUrl}`);
+      return null;
+    }
+
+    // Check content-length before buffering
+    const cl = res.headers.get('content-length');
+    if (cl && parseInt(cl, 10) > MAX_SIZE) {
+      console.warn(`R2 pre-cache: skipping ${sourceUrl} (${cl} bytes exceeds limit)`);
+      return null;
+    }
+
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length > MAX_SIZE) {
+      console.warn(`R2 pre-cache: skipping ${sourceUrl} (${buffer.length} bytes exceeds limit)`);
+      return null;
+    }
+
+    // Correct content-type for mislabeled videos
+    const rawCt = res.headers.get('content-type') || (variant === 'thumb' ? 'image/jpeg' : 'video/mp4');
+    const isVideo = sourceUrl.endsWith('.mp4') || sourceUrl.endsWith('.webm');
+    const contentType = (isVideo && rawCt.startsWith('image/')) ? 'video/mp4' : rawCt;
+
+    return await uploadToR2(itemId, variant, buffer, contentType);
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') {
+      console.warn(`R2 pre-cache: timeout downloading ${sourceUrl}`);
+    } else {
+      console.warn(`R2 pre-cache: failed for ${sourceUrl}:`, err);
+    }
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
  * Check if an object already exists in R2.
  */
 export async function existsInR2(

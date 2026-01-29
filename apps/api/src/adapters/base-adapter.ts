@@ -119,6 +119,11 @@ export abstract class BaseAdapter {
     this.config = config;
   }
 
+  /** Get the source config (for use by scanner/ingestion) */
+  getSourceConfig(): SourceConfig {
+    return this.config;
+  }
+
   /**
    * Get information about the latest page
    * Used to determine where to start scanning

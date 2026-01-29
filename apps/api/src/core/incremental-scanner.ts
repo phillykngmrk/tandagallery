@@ -4,6 +4,8 @@ import { eq, and, sql } from 'drizzle-orm';
 import { checkpointManager, type CheckpointState, type ItemIdentifier } from './checkpoint-manager.js';
 import { generateFingerprint, isValidDuration } from './deduplication.js';
 import type { BaseAdapter, ScrapedItem, ScanResult } from '../adapters/base-adapter.js';
+import { isR2Enabled, downloadAndUploadToR2 } from '../lib/r2.js';
+import { buildSourceHeaders, safeFetchMedia, isAllowedUrl } from '../lib/media-fetcher.js';
 
 /**
  * Configuration for the incremental scanner
@@ -242,7 +244,7 @@ export class IncrementalScanner {
           );
 
           // Commit buffered items
-          const commitResult = await this.commitItems(threadId, itemBuffer);
+          const commitResult = await this.commitItems(threadId, itemBuffer, adapter.getSourceConfig().extra);
 
           return {
             status: 'partial',
@@ -278,7 +280,7 @@ export class IncrementalScanner {
     }
 
     // Commit all buffered items
-    const commitResult = await this.commitItems(threadId, itemBuffer);
+    const commitResult = await this.commitItems(threadId, itemBuffer, adapter.getSourceConfig().extra);
 
     // Determine final status
     let status: IngestRunResult['status'];
@@ -353,6 +355,7 @@ export class IncrementalScanner {
   private async commitItems(
     threadId: string,
     items: ScrapedItem[],
+    scraperConfig?: Record<string, unknown>,
   ): Promise<{ inserted: number; duplicates: number; failed: number }> {
     if (items.length === 0) {
       return { inserted: 0, duplicates: 0, failed: 0 };
@@ -426,6 +429,44 @@ export class IncrementalScanner {
                   position: i,
                 }).onConflictDoNothing();
               }
+            }
+          }
+
+          // Pre-cache media to R2 CDN
+          if (isR2Enabled()) {
+            try {
+              const sc = scraperConfig as { headers?: Record<string, string> } | undefined;
+              const cdnUpdates: Record<string, string> = {};
+
+              // Download and upload original
+              if (item.mediaUrl && isAllowedUrl(item.mediaUrl)) {
+                const headers = buildSourceHeaders(item.mediaUrl, sc);
+                const cdnUrl = await downloadAndUploadToR2(
+                  insertedItem.id, 'original', item.mediaUrl,
+                  (url) => safeFetchMedia(url, headers),
+                );
+                if (cdnUrl) cdnUpdates.cdnOriginal = cdnUrl;
+              }
+
+              // Download and upload thumbnail
+              if (item.thumbnailUrl && isAllowedUrl(item.thumbnailUrl)) {
+                const headers = buildSourceHeaders(item.thumbnailUrl, sc);
+                const cdnUrl = await downloadAndUploadToR2(
+                  insertedItem.id, 'thumb', item.thumbnailUrl,
+                  (url) => safeFetchMedia(url, headers),
+                );
+                if (cdnUrl) cdnUpdates.cdnThumbnail = cdnUrl;
+              }
+
+              // Update DB with CDN URLs
+              if (Object.keys(cdnUpdates).length > 0) {
+                await db.update(mediaItems)
+                  .set({ mediaUrls: sql`${mediaItems.mediaUrls} || ${JSON.stringify(cdnUpdates)}::jsonb` })
+                  .where(eq(mediaItems.id, insertedItem.id))
+                  .execute();
+              }
+            } catch (r2Err) {
+              console.warn(`[R2] Pre-cache failed for item ${insertedItem.id}:`, r2Err);
             }
           }
         } else {
