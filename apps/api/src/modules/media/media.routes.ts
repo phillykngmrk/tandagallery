@@ -167,7 +167,9 @@ export async function mediaRoutes(app: FastifyInstance) {
           });
         }
 
-        const contentType = response.headers.get('content-type') || 'video/mp4';
+        // Force correct content-type for video — RedGifs "gif" items return image/gif but are actually mp4
+        const rawContentType = response.headers.get('content-type') || 'video/mp4';
+        const contentType = rawContentType.startsWith('image/') ? 'video/mp4' : rawContentType;
         const contentLength = response.headers.get('content-length');
         const contentRange = response.headers.get('content-range');
         const acceptRanges = response.headers.get('accept-ranges');
