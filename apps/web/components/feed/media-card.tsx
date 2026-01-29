@@ -27,12 +27,13 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const isAnimated = item.type === 'video';
+  const isAnimated = item.type === 'video' || item.type === 'gif';
+  const isGif = item.type === 'gif';
 
   // Handle hover for video preview
   const handleMouseEnter = () => {
     setIsHovered(true);
-    if (videoRef.current && isAnimated) {
+    if (videoRef.current && isAnimated && !isGif) {
       videoRef.current.load();
       videoRef.current.play().catch(() => {});
     }
@@ -40,7 +41,7 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
 
   const handleMouseLeave = () => {
     setIsHovered(false);
-    if (videoRef.current) {
+    if (videoRef.current && !isGif) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
     }
@@ -79,27 +80,27 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
           unoptimized
         />
 
-        {/* Video preview on hover (for animated content) */}
+        {/* Video preview: autoplay for gifs, hover-play for videos */}
         {isAnimated && (
           <video
             ref={videoRef}
-
             className="media-card-image object-cover"
             style={{
               position: 'absolute',
               inset: 0,
               width: '100%',
               height: '100%',
-              opacity: isHovered ? 1 : 0,
+              opacity: isGif || isHovered ? 1 : 0,
               transition: 'opacity 0.2s',
               pointerEvents: 'none',
             }}
             muted
             loop
             playsInline
-            preload="none"
+            autoPlay={isGif}
+            preload={isGif ? 'auto' : 'none'}
             onCanPlay={() => {
-              if (isHovered && videoRef.current) {
+              if ((isGif || isHovered) && videoRef.current) {
                 videoRef.current.play().catch(() => {});
               }
             }}

@@ -84,7 +84,22 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   // Health check
-  app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+  app.get('/health', async () => {
+    let redisStatus = 'unknown';
+    try {
+      const { redis } = await import('./lib/redis.js');
+      const pong = await redis.ping();
+      redisStatus = pong === 'PONG' ? 'connected' : 'error';
+    } catch {
+      redisStatus = 'disconnected';
+    }
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      redis: redisStatus,
+      queues: process.env.ENABLE_QUEUES !== 'false' ? 'enabled' : 'disabled',
+    };
+  });
 
   // API routes
   await app.register(authRoutes, { prefix: '/api/v1/auth' });
