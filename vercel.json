@@ -1,5 +1,3 @@
 {
-  "buildCommand": "cd ../.. && pnpm --filter @aggragif/shared build && pnpm --filter @aggragif/web build",
-  "installCommand": "cd ../.. && pnpm install",
   "framework": "nextjs"
 }
