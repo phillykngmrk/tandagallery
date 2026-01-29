@@ -22,7 +22,7 @@ const envSchema = z.object({
   API_HOST: z.string().default('0.0.0.0'),
 
   // CORS
-  FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+  FRONTEND_URL: z.string().default('http://localhost:3000'),
 
   // Ingestion
   INGEST_POLL_INTERVAL_MS: z.coerce.number().default(1200000), // 20 minutes

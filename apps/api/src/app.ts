@@ -29,9 +29,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow media proxy
   });
 
-  // CORS
+  // CORS — support multiple origins (comma-separated FRONTEND_URL)
+  const allowedOrigins = config.FRONTEND_URL.split(',').map(u => u.trim());
   await app.register(cors, {
-    origin: config.FRONTEND_URL,
+    origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins,
     credentials: true,
   });
 
@@ -74,7 +75,7 @@ export async function buildApp(): Promise<FastifyInstance> {
       return;
     }
     const origin = request.headers.origin;
-    if (origin && origin !== config.FRONTEND_URL) {
+    if (origin && !allowedOrigins.includes(origin)) {
       return reply.status(403).send({
         error: 'Forbidden',
         message: 'Invalid request origin',

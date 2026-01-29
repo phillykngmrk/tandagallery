@@ -10,8 +10,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  experimental: {
-    // Enable React 19 features
+  async rewrites() {
+    const apiUrl = process.env.API_URL;
+    if (!apiUrl) return [];
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: `${apiUrl}/api/v1/:path*`,
+      },
+    ];
   },
 };
 
