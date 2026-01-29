@@ -9,6 +9,7 @@ const ALLOWED_HOSTS = [
   'jpg6.su',
   'simp6.selti-delivery.ru',
   'abwcandyshop.com',
+  'r2.cloudflarestorage.com',
   'redgifs.com',
   'thumbs4.redgifs.com',
   'thumbs44.redgifs.com',
