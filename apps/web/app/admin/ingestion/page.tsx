@@ -333,11 +333,20 @@ export default function IngestionPage() {
     enabled: !!selectedSource,
   });
 
+  const [triggerStatus, setTriggerStatus] = useState<string | null>(null);
+
   const triggerMutation = useMutation({
     mutationFn: ({ sourceId, threadId }: { sourceId: string; threadId?: string }) =>
       triggerIngestion(sourceId, threadId),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      const msg = variables.threadId ? 'Thread ingestion queued' : 'Source ingestion queued';
+      setTriggerStatus(msg);
+      setTimeout(() => setTriggerStatus(null), 3000);
       queryClient.invalidateQueries({ queryKey: ['admin', 'ingestion'] });
+    },
+    onError: (error) => {
+      setTriggerStatus(`Error: ${error.message}`);
+      setTimeout(() => setTriggerStatus(null), 5000);
     },
   });
 
@@ -407,6 +416,13 @@ export default function IngestionPage() {
       {isError && (
         <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm">
           Unable to connect to ingestion API. The backend may not be running or the endpoints are not implemented yet.
+        </div>
+      )}
+
+      {/* Trigger status */}
+      {triggerStatus && (
+        <div className={`p-3 text-sm border ${triggerStatus.startsWith('Error') ? 'border-red-500/30 text-red-400 bg-red-500/10' : 'border-green-500/30 text-green-400 bg-green-500/10'}`}>
+          {triggerStatus}
         </div>
       )}
 

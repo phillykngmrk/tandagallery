@@ -318,13 +318,14 @@ async function schedulePolling(): Promise<void> {
     await schedulerQueue.removeRepeatableByKey(job.key);
   }
 
-  // Schedule new polling job every 20 minutes
+  // Schedule new polling job using configured interval
+  const pollInterval = parseInt(process.env.INGEST_POLL_INTERVAL_MS || '600000', 10);
   await schedulerQueue.add(
     'poll-all',
     {},
     {
       repeat: {
-        every: 20 * 60 * 1000, // 20 minutes
+        every: pollInterval,
       },
       jobId: 'poll-all',
     },
