@@ -140,7 +140,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
     );
   }
 
-  const isVideo = item.type === 'video';
+  const isVideo = item.type === 'video' || item.type === 'gif';
 
   return (
     <>

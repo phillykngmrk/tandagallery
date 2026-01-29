@@ -27,7 +27,7 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const isAnimated = item.type === 'video';
+  const isAnimated = item.type === 'video' || item.type === 'gif';
 
   // Handle hover for video preview
   const handleMouseEnter = () => {

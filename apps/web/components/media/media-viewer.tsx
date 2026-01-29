@@ -47,7 +47,7 @@ export function MediaViewer({
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isOpen = item !== null;
-  const isVideo = item?.type === 'video';
+  const isVideo = item?.type === 'video' || item?.type === 'gif';
 
   // Reset state when item changes
   useEffect(() => {
