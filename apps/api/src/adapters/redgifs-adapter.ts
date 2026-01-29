@@ -167,8 +167,7 @@ export class RedGifsAdapter extends BaseAdapter {
         mediaType: 'gif',
         mediaUrl,
         thumbnailUrl: gif.urls?.thumbnail || gif.urls?.poster || undefined,
-        // Don't pass durationMs — RedGifs content is typically >30s and would
-        // be filtered by the scanner's maxDurationMs check
+        durationMs: gif.duration ? Math.round(gif.duration * 1000) : undefined,
         width: gif.width || undefined,
         height: gif.height || undefined,
         tags: gif.tags || undefined,

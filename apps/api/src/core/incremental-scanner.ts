@@ -388,6 +388,17 @@ export class IncrementalScanner {
           continue;
         }
 
+        // Duration cap: skip videos/GIFs longer than 30 seconds
+        const MAX_DURATION_MS = 30_000;
+        if (
+          (item.mediaType === 'video' || item.mediaType === 'gif') &&
+          item.durationMs != null &&
+          item.durationMs > MAX_DURATION_MS
+        ) {
+          console.log(`[Scanner] Skipping item ${item.externalId} (duration ${item.durationMs}ms exceeds 30s cap)`);
+          continue;
+        }
+
         // Insert media item (ON CONFLICT DO NOTHING for idempotency)
         const result = await db.insert(mediaItems).values({
           threadId,
