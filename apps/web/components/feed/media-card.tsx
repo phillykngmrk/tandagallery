@@ -24,7 +24,7 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => setIsVisible(entry.isIntersecting),
-      { rootMargin: '200px' }
+      { rootMargin: '600px' }
     );
     observer.observe(el);
     return () => observer.disconnect();
