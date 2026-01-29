@@ -70,7 +70,7 @@ export function Header() {
           <div className="flex items-center justify-between h-16 md:h-20">
             {/* Logo */}
             <Link href="/" className="text-title tracking-tight">
-              Tits & Ass Gallery
+              T & A Gallery
             </Link>
 
             {/* Navigation */}
