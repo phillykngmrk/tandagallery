@@ -1,0 +1,23 @@
+{
+  "name": "aggragif",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:api": "pnpm --filter @aggragif/api dev",
+    "dev:web": "pnpm --filter @aggragif/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "db:generate": "pnpm --filter @aggragif/db generate",
+    "db:migrate": "pnpm --filter @aggragif/db migrate",
+    "db:push": "pnpm --filter @aggragif/db push",
+    "db:studio": "pnpm --filter @aggragif/db studio"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

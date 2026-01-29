@@ -1,0 +1,68 @@
+services:
+  # Redis for job queue (BullMQ)
+  redis:
+    image: redis:7-alpine
+    container_name: aggragif-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API server (Fastify)
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: aggragif-api
+    ports:
+      - "3001:3001"
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379
+      API_HOST: 0.0.0.0
+      FRONTEND_URL: http://localhost:3000
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Web frontend (Next.js)
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: aggragif-web
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # Redis Commander (optional, for debugging)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: aggragif-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - debug
+
+volumes:
+  redis_data:
