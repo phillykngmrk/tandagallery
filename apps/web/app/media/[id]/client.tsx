@@ -156,7 +156,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
               {isVideo ? (
                 <video
                   className="w-full h-full object-contain"
-                  crossOrigin="anonymous"
+
                   controls
                   autoPlay
                   loop

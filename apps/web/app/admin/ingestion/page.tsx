@@ -655,7 +655,7 @@ export default function IngestionPage() {
                               <video
                                 src={item.mediaUrl}
                                 poster={item.thumbnailUrl}
-                                crossOrigin="anonymous"
+
                                 className="w-full h-full object-cover"
                                 muted
                                 playsInline
