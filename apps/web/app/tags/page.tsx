@@ -1,7 +1,7 @@
 import { TagsClient } from './client';
 
 export const metadata = {
-  title: 'Tags — Tits & Ass Gallery',
+  title: 'Tags — T & A Gallery',
   description: 'Browse content by tags and categories.',
 };
 

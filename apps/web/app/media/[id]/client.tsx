@@ -27,6 +27,8 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
     queryKey: ['media', id],
     queryFn: () => mediaApi.getById(id),
     enabled: !!id,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
   // Sync state with fetched data

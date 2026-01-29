@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : process.env.NEXT_PUBLIC_API_URL || '/api/v1';
     const response = await fetch(
       `${apiBase}/media/${id}`,
-      { next: { revalidate: 60 } }
+      { next: { revalidate: 60 }, signal: AbortSignal.timeout(5000) }
     );
 
     if (!response.ok) {
@@ -29,10 +29,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     return {
       title: item.title || 'Media',
-      description: item.description || `View this ${item.type} on Tits & Ass Gallery`,
+      description: item.description || `View this ${item.type} on T & A Gallery`,
       openGraph: {
-        title: item.title || 'Media on Tits & Ass Gallery',
-        description: item.description || `View this ${item.type} on Tits & Ass Gallery`,
+        title: item.title || 'Media on T & A Gallery',
+        description: item.description || `View this ${item.type} on T & A Gallery`,
         type: item.type === 'video' ? 'video.other' : 'article',
         images: [
           {
@@ -55,15 +55,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       },
       twitter: {
         card: item.type === 'video' ? 'player' : 'summary_large_image',
-        title: item.title || 'Media on Tits & Ass Gallery',
-        description: item.description || `View this ${item.type} on Tits & Ass Gallery`,
+        title: item.title || 'Media on T & A Gallery',
+        description: item.description || `View this ${item.type} on T & A Gallery`,
         images: [item.thumbnailUrl],
       },
     };
   } catch {
     return {
       title: 'Media',
-      description: 'View media on Tits & Ass Gallery',
+      description: 'View media on T & A Gallery',
     };
   }
 }

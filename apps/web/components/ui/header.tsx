@@ -19,7 +19,7 @@ export function Header() {
         {/* Logo */}
         <Link href="/" className="mr-6 flex items-center space-x-2">
           <span className="text-xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
-            Tits & Ass Gallery
+            T & A Gallery
           </span>
         </Link>
 

@@ -12,32 +12,32 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Tits & Ass Gallery — Curated Motion',
-    template: '%s | Tits & Ass Gallery',
+    default: 'T & A Gallery — Curated Motion',
+    template: '%s | T & A Gallery',
   },
   description: 'Discover the best GIFs and short videos from across the web. A carefully curated collection updated continuously.',
   keywords: ['gifs', 'videos', 'motion', 'animation', 'curated', 'short videos', 'memes'],
-  authors: [{ name: 'Tits & Ass Gallery' }],
-  creator: 'Tits & Ass Gallery',
+  authors: [{ name: 'T & A Gallery' }],
+  creator: 'T & A Gallery',
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.tandagallery.com'),
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    siteName: 'Tits & Ass Gallery',
-    title: 'Tits & Ass Gallery — Curated Motion',
+    siteName: 'T & A Gallery',
+    title: 'T & A Gallery — Curated Motion',
     description: 'Discover the best GIFs and short videos from across the web.',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Tits & Ass Gallery - Curated Motion',
+        alt: 'T & A Gallery - Curated Motion',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Tits & Ass Gallery — Curated Motion',
+    title: 'T & A Gallery — Curated Motion',
     description: 'Discover the best GIFs and short videos from across the web.',
     images: ['/og-image.png'],
   },
