@@ -12,6 +12,7 @@
   "dependencies": {
     "@aggragif/db": "workspace:*",
     "@aggragif/shared": "workspace:*",
+    "@aws-sdk/client-s3": "^3.978.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^10.0.2",
     "@fastify/helmet": "^13.0.2",

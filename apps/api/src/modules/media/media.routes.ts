@@ -3,6 +3,7 @@ import { db } from '../../lib/db.js';
 import { mediaItems, likes, favorites, comments, sources } from '@aggragif/db/schema';
 import { eq, and, isNull, sql } from 'drizzle-orm';
 import { getProxyUrls } from '../../lib/proxy-urls.js';
+import { isR2Enabled, uploadToR2 } from '../../lib/r2.js';
 
 // In-memory cache for proxied images (URL -> {data, contentType, fetchedAt})
 const proxyCache = new Map<string, { data: Buffer; contentType: string; fetchedAt: number }>();
@@ -46,7 +47,16 @@ export async function mediaRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'Not Found' });
     }
 
-    const mediaUrls = item.mediaUrls as { original: string; thumbnail?: string };
+    const mediaUrls = item.mediaUrls as { original: string; thumbnail?: string; cdnOriginal?: string; cdnThumbnail?: string };
+
+    // If already cached on R2, redirect to CDN
+    const cdnUrl = wantThumbnail ? mediaUrls.cdnThumbnail : mediaUrls.cdnOriginal;
+    if (cdnUrl) {
+      reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+      reply.header('Access-Control-Allow-Origin', '*');
+      return reply.redirect(cdnUrl);
+    }
+
     const targetUrl = wantThumbnail
       ? (mediaUrls.thumbnail || mediaUrls.original)
       : mediaUrls.original;
@@ -55,7 +65,7 @@ export async function mediaRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'No media URL' });
     }
 
-    // Check cache
+    // Check in-memory cache
     const cacheKey = `${id}:${wantThumbnail ? 'thumb' : 'full'}`;
     const cached = proxyCache.get(cacheKey);
     if (cached && Date.now() - cached.fetchedAt < PROXY_CACHE_TTL) {
@@ -124,7 +134,23 @@ export async function mediaRoutes(app: FastifyInstance) {
         return res;
       }
 
-      // For video: stream with range request support
+      // Helper: upload to R2 in background and update DB with CDN URL
+      function cacheToR2(buf: Buffer, ct: string) {
+        if (!isR2Enabled()) return;
+        const v = wantThumbnail ? 'thumb' as const : 'original' as const;
+        const field = wantThumbnail ? 'cdnThumbnail' : 'cdnOriginal';
+        uploadToR2(id, v, buf, ct).then((cdnUrl) => {
+          if (!cdnUrl) return;
+          // Update mediaUrls JSONB with CDN URL
+          db.update(mediaItems)
+            .set({ mediaUrls: sql`${mediaItems.mediaUrls} || ${JSON.stringify({ [field]: cdnUrl })}::jsonb` })
+            .where(eq(mediaItems.id, id))
+            .execute()
+            .catch((err) => console.error('R2 DB update failed:', err));
+        }).catch((err) => console.error('R2 upload failed:', err));
+      }
+
+      // For video: buffer full response, send to client, and cache to R2
       if (isVideo) {
         const rangeHeader = request.headers.range;
         const fetchHeaders: Record<string, string> = { ...headers };
@@ -146,6 +172,9 @@ export async function mediaRoutes(app: FastifyInstance) {
         const contentRange = response.headers.get('content-range');
         const acceptRanges = response.headers.get('accept-ranges');
 
+        // Buffer the full video for R2 upload (only on non-range requests to avoid partial uploads)
+        const videoBuffer = Buffer.from(await response.arrayBuffer());
+
         reply.header('Content-Type', contentType);
         reply.header('Cache-Control', 'public, max-age=300');
         reply.header('Access-Control-Allow-Origin', '*');
@@ -157,11 +186,13 @@ export async function mediaRoutes(app: FastifyInstance) {
         else reply.header('Accept-Ranges', 'bytes');
 
         reply.status(response.status); // 200 or 206
-        const body = response.body;
-        if (body) {
-          return reply.send(body);
+
+        // Cache full video to R2 (only if this was a full request, not a range)
+        if (!rangeHeader) {
+          cacheToR2(videoBuffer, contentType);
         }
-        return reply.send(Buffer.from(await response.arrayBuffer()));
+
+        return reply.send(videoBuffer);
       }
 
       // For images: buffer and cache
@@ -197,8 +228,9 @@ export async function mediaRoutes(app: FastifyInstance) {
         });
       }
 
-      // Cache image content
+      // Cache image in memory and R2
       proxyCache.set(cacheKey, { data: buffer, contentType, fetchedAt: Date.now() });
+      cacheToR2(buffer, contentType);
 
       // Evict old entries periodically
       if (proxyCache.size > 500) {

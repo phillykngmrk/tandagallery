@@ -21,7 +21,7 @@ function needsProxy(url: string): boolean {
  */
 export function getProxyUrls(
   itemId: string,
-  mediaUrls: { original: string; thumbnail?: string },
+  mediaUrls: { original: string; thumbnail?: string; cdnOriginal?: string; cdnThumbnail?: string },
   apiBase?: string,
 ): { mediaUrl: string; thumbnailUrl: string } {
   if (!apiBase && !process.env.API_PUBLIC_URL) {
@@ -33,11 +33,10 @@ export function getProxyUrls(
   const thumbUrl = mediaUrls.thumbnail || originalUrl;
 
   return {
-    mediaUrl: needsProxy(originalUrl)
-      ? `${base}/proxy/${itemId}`
-      : originalUrl,
-    thumbnailUrl: needsProxy(thumbUrl)
-      ? `${base}/proxy/${itemId}?thumb=1`
-      : thumbUrl,
+    // Prefer CDN URL if already cached on R2
+    mediaUrl: mediaUrls.cdnOriginal
+      || (needsProxy(originalUrl) ? `${base}/proxy/${itemId}` : originalUrl),
+    thumbnailUrl: mediaUrls.cdnThumbnail
+      || (needsProxy(thumbUrl) ? `${base}/proxy/${itemId}?thumb=1` : thumbUrl),
   };
 }

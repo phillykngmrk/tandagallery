@@ -32,6 +32,13 @@ const envSchema = z.object({
   INGEST_MAX_PAGES_PER_RUN: z.coerce.number().default(10),
   INGEST_MAX_CONCURRENT_SOURCES: z.coerce.number().default(5),
 
+  // Cloudflare R2 (optional — if set, media is cached to CDN)
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET: z.string().optional(),
+  R2_PUBLIC_URL: z.string().optional(),
+
   // Environment
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
