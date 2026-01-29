@@ -24,7 +24,7 @@ export function getProxyUrls(
   mediaUrls: { original: string; thumbnail?: string },
   apiBase?: string,
 ): { mediaUrl: string; thumbnailUrl: string } {
-  const base = apiBase || `${process.env.API_PUBLIC_URL || 'http://localhost:3001'}/api/v1/media`;
+  const base = apiBase || '/api/v1/media';
 
   const originalUrl = mediaUrls.original;
   const thumbUrl = mediaUrls.thumbnail || originalUrl;
