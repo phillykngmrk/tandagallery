@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import Image from 'next/image';
 import Link from 'next/link';
 import { mediaApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -153,7 +152,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
         <div className="container-wide pb-16">
           <div className="max-w-5xl mx-auto">
             {/* Media */}
-            <div className="video-container aspect-video mb-8">
+            <div className={`video-container mb-8 ${isVideo ? 'aspect-video' : 'relative flex items-center justify-center'}`} style={!isVideo ? { minHeight: '50vh', maxHeight: '85vh' } : undefined}>
               {isVideo ? (
                 <video
                   className="w-full h-full object-contain"
@@ -166,13 +165,11 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
                   <source src={item.mediaUrl} type="video/mp4" />
                 </video>
               ) : (
-                <Image
+                <img
                   src={item.mediaUrl}
                   alt={item.title || 'Media item'}
-                  fill
-                  className="object-contain"
-                  priority
-                  unoptimized
+                  className="max-w-full max-h-[85vh] object-contain"
+                  loading="eager"
                 />
               )}
             </div>
