@@ -1,6 +1,5 @@
 {
-  "buildCommand": "pnpm --filter @aggragif/shared build && pnpm --filter @aggragif/web build",
-  "installCommand": "pnpm install",
-  "framework": "nextjs",
-  "outputDirectory": "apps/web/.next"
+  "buildCommand": "cd ../.. && pnpm --filter @aggragif/shared build && pnpm --filter @aggragif/web build",
+  "installCommand": "cd ../.. && pnpm install",
+  "framework": "nextjs"
 }

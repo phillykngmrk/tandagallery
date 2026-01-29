@@ -398,13 +398,12 @@ export class IncrementalScanner {
           tags: item.tags || [],
           viewCount: item.sourceMetrics?.views ?? 0,
           likeCount: item.sourceMetrics?.likes ?? 0,
-          commentCount: item.sourceMetrics?.comments ?? 0,
+          commentCount: 0,
         }).onConflictDoUpdate({
           target: [mediaItems.threadId, mediaItems.externalItemId],
           set: {
             viewCount: sql`GREATEST(${mediaItems.viewCount}, EXCLUDED.view_count)`,
             likeCount: sql`GREATEST(${mediaItems.likeCount}, EXCLUDED.like_count)`,
-            commentCount: sql`GREATEST(${mediaItems.commentCount}, EXCLUDED.comment_count)`,
           },
         }).returning({ id: mediaItems.id });
 
