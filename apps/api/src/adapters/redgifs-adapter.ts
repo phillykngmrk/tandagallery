@@ -47,7 +47,7 @@ export class RedGifsAdapter extends BaseAdapter {
     return this.authToken;
   }
 
-  private async apiFetch(url: string): Promise<unknown> {
+  private async apiFetch(url: string, retries = 3): Promise<unknown> {
     const token = await this.getToken();
     const res = await fetch(url, {
       headers: {
@@ -55,6 +55,14 @@ export class RedGifsAdapter extends BaseAdapter {
         'User-Agent': this.getUserAgent(),
       },
     });
+
+    if (res.status === 429 && retries > 0) {
+      const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10);
+      const delay = Math.max(retryAfter * 1000, 5000) * (4 - retries); // escalating backoff
+      console.warn(`RedGifs 429 rate limited, waiting ${delay}ms before retry (${retries} left)`);
+      await new Promise(r => setTimeout(r, delay));
+      return this.apiFetch(url, retries - 1);
+    }
 
     if (!res.ok) {
       throw new Error(`RedGifs API error: HTTP ${res.status} for ${url}`);
