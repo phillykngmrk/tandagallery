@@ -62,7 +62,6 @@ export interface MediaItemSummary {
   commentCount: number;
   publishedAt: string | null;
   isLiked: boolean | null;
-  isFavorited: boolean | null;
   tags?: string[];
 }
 
@@ -73,7 +72,6 @@ export interface MediaItemDetail extends MediaItemSummary {
   authorUrl: string | null;
   permalink: string;
   tags: string[];
-  favoriteCount: number;
   viewCount: number;
   isCommentsLocked: boolean;
   ingestedAt: string;

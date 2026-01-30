@@ -1,7 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { db } from '../../lib/db.js';
-import { likes, favorites, mediaItems } from '@aggragif/db/schema';
-import { eq, and, isNull, desc, lt } from 'drizzle-orm';
+import { likes } from '@aggragif/db/schema';
 import { getProxyUrls } from '../../lib/proxy-urls.js';
 
 function encodeCursor(data: Record<string, unknown>): string {
@@ -61,20 +60,6 @@ export async function meRoutes(app: FastifyInstance) {
       ? encodeCursor({ createdAt: lastLike.createdAt.toISOString() })
       : null;
 
-    // Build user's favorite set for these items
-    const itemIds = resultLikes.map(l => l.mediaItemId);
-    let userFavorites: Set<string> = new Set();
-    if (itemIds.length > 0) {
-      const favResults = await db.query.favorites.findMany({
-        where: (f, { and, eq, inArray }) => and(
-          eq(f.userId, userId),
-          inArray(f.mediaItemId, itemIds),
-        ),
-        columns: { mediaItemId: true },
-      });
-      userFavorites = new Set(favResults.map(f => f.mediaItemId));
-    }
-
     return {
       items: resultLikes
         .filter(l => l.mediaItem && !l.mediaItem.isHidden && !l.mediaItem.deletedAt)
@@ -91,82 +76,7 @@ export async function meRoutes(app: FastifyInstance) {
             likeCount: item.likeCount,
             commentCount: item.commentCount,
             publishedAt: item.postedAt?.toISOString() || null,
-            isLiked: true, // They're in the likes list
-            isFavorited: userFavorites.has(item.id),
-            tags: (item.tags as string[]) || [],
-          };
-        }),
-      pagination: {
-        nextCursor,
-        hasMore,
-      },
-    };
-  });
-
-  // GET /me/favorites — paginated list of items the user has favorited
-  app.get('/favorites', async (request: FastifyRequest) => {
-    const userId = (request.user as { sub: string }).sub;
-    const query = request.query as { cursor?: string; limit?: string };
-    const limit = Math.min(parseInt(query.limit || '24', 10), 100);
-
-    const cursorData = query.cursor
-      ? decodeCursor<{ createdAt: string }>(query.cursor)
-      : null;
-
-    const userFavs = await db.query.favorites.findMany({
-      where: (f, { and, eq, lt: ltOp }) => and(
-        eq(f.userId, userId),
-        cursorData
-          ? ltOp(f.createdAt, new Date(cursorData.createdAt))
-          : undefined,
-      ),
-      orderBy: (f, { desc }) => [desc(f.createdAt)],
-      limit: limit + 1,
-      with: {
-        mediaItem: true,
-      },
-    });
-
-    const hasMore = userFavs.length > limit;
-    const resultFavs = hasMore ? userFavs.slice(0, -1) : userFavs;
-
-    const lastFav = resultFavs[resultFavs.length - 1];
-    const nextCursor = hasMore && lastFav
-      ? encodeCursor({ createdAt: lastFav.createdAt.toISOString() })
-      : null;
-
-    // Build user's likes set for these items
-    const itemIds = resultFavs.map(f => f.mediaItemId);
-    let userLikes: Set<string> = new Set();
-    if (itemIds.length > 0) {
-      const likeResults = await db.query.likes.findMany({
-        where: (l, { and, eq, inArray }) => and(
-          eq(l.userId, userId),
-          inArray(l.mediaItemId, itemIds),
-        ),
-        columns: { mediaItemId: true },
-      });
-      userLikes = new Set(likeResults.map(l => l.mediaItemId));
-    }
-
-    return {
-      items: resultFavs
-        .filter(f => f.mediaItem && !f.mediaItem.isHidden && !f.mediaItem.deletedAt)
-        .map(f => {
-          const item = f.mediaItem!;
-          return {
-            id: item.id,
-            type: item.mediaType,
-            title: item.title,
-            ...getProxyUrls(item.id, item.mediaUrls as { original: string; thumbnail?: string }),
-            duration: item.durationMs ? Math.floor(item.durationMs / 1000) : null,
-            width: item.width,
-            height: item.height,
-            likeCount: item.likeCount,
-            commentCount: item.commentCount,
-            publishedAt: item.postedAt?.toISOString() || null,
-            isLiked: userLikes.has(item.id),
-            isFavorited: true, // They're in the favorites list
+            isLiked: true,
             tags: (item.tags as string[]) || [],
           };
         }),

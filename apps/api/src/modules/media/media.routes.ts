@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { db } from '../../lib/db.js';
-import { mediaItems, likes, favorites, comments, sources } from '@aggragif/db/schema';
+import { mediaItems, likes, comments, sources } from '@aggragif/db/schema';
 import { eq, and, isNull, sql } from 'drizzle-orm';
 import { getProxyUrls } from '../../lib/proxy-urls.js';
 import { isR2Enabled, uploadToR2 } from '../../lib/r2.js';
@@ -242,19 +242,12 @@ export async function mediaRoutes(app: FastifyInstance) {
 
     // Get user's interaction state
     let isLiked: boolean | null = null;
-    let isFavorited: boolean | null = null;
 
     if (userId) {
-      const [like, favorite] = await Promise.all([
-        db.query.likes.findFirst({
-          where: (l, { and, eq }) => and(eq(l.userId, userId), eq(l.mediaItemId, id)),
-        }),
-        db.query.favorites.findFirst({
-          where: (f, { and, eq }) => and(eq(f.userId, userId), eq(f.mediaItemId, id)),
-        }),
-      ]);
+      const like = await db.query.likes.findFirst({
+        where: (l, { and, eq }) => and(eq(l.userId, userId), eq(l.mediaItemId, id)),
+      });
       isLiked = !!like;
-      isFavorited = !!favorite;
     }
 
     // Increment view count with IP-based deduplication (fire and forget)
@@ -300,13 +293,11 @@ export async function mediaRoutes(app: FastifyInstance) {
       source: item.thread?.source || null,
       likeCount: item.likeCount,
       commentCount: item.commentCount,
-      favoriteCount: item.favoriteCount,
       viewCount: item.viewCount,
       isCommentsLocked: item.commentsLocked,
       publishedAt: item.postedAt?.toISOString() || null,
       ingestedAt: item.createdAt.toISOString(),
       isLiked,
-      isFavorited,
       assets: item.assets.map(a => ({
         id: a.id,
         url: a.cdnUrl || a.assetUrl,
@@ -392,79 +383,6 @@ export async function mediaRoutes(app: FastifyInstance) {
     return {
       isLiked: !!existingLike,
       likeCount: item.likeCount,
-    };
-  });
-
-  // Favorite/unfavorite media item (idempotent)
-  app.put('/:id/favorite', {
-    preHandler: [async (request, reply) => {
-      try {
-        await request.jwtVerify();
-      } catch {
-        return reply.status(401).send({
-          error: 'Unauthorized',
-          message: 'Authentication required',
-        });
-      }
-    }],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const userId = (request.user as { sub: string }).sub;
-    const body = request.body as { action?: 'add' | 'remove' } | undefined;
-
-    // Check if media exists
-    const item = await db.query.mediaItems.findFirst({
-      where: (m, { and, eq, isNull }) => and(
-        eq(m.id, id),
-        eq(m.isHidden, false),
-        isNull(m.deletedAt),
-      ),
-      columns: { id: true, favoriteCount: true },
-    });
-
-    if (!item) {
-      return reply.status(404).send({
-        error: 'Not Found',
-        message: 'Media item not found',
-      });
-    }
-
-    // Check current favorite status
-    const existingFavorite = await db.query.favorites.findFirst({
-      where: (f, { and, eq }) => and(eq(f.userId, userId), eq(f.mediaItemId, id)),
-    });
-
-    const shouldFavorite = body?.action
-      ? body.action === 'add'
-      : !existingFavorite;
-
-    if (shouldFavorite && !existingFavorite) {
-      await db.insert(favorites).values({ userId, mediaItemId: id });
-      await db.update(mediaItems)
-        .set({ favoriteCount: sql`${mediaItems.favoriteCount} + 1` })
-        .where(eq(mediaItems.id, id));
-
-      return {
-        isFavorited: true,
-        favoriteCount: item.favoriteCount + 1,
-      };
-    } else if (!shouldFavorite && existingFavorite) {
-      await db.delete(favorites).where(
-        and(eq(favorites.userId, userId), eq(favorites.mediaItemId, id))
-      );
-      await db.update(mediaItems)
-        .set({ favoriteCount: sql`GREATEST(${mediaItems.favoriteCount} - 1, 0)` })
-        .where(eq(mediaItems.id, id));
-
-      return {
-        isFavorited: false,
-        favoriteCount: Math.max(item.favoriteCount - 1, 0),
-      };
-    }
-
-    return {
-      isFavorited: !!existingFavorite,
-      favoriteCount: item.favoriteCount,
     };
   });
 

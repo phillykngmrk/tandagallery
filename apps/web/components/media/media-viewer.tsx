@@ -35,8 +35,8 @@ export function MediaViewer({
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
-  const [isFavorited, setIsFavorited] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const likeMutatedRef = useRef(false);
   const [showComments, setShowComments] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -53,11 +53,14 @@ export function MediaViewer({
   const itemId = item?.id;
   useEffect(() => {
     if (item) {
-      setLikeCount(item.likeCount);
-      setIsLiked(item.isLiked === true);
-      setIsFavorited(item.isFavorited === true);
+      // Don't overwrite optimistic state if we just mutated
+      if (!likeMutatedRef.current) {
+        setLikeCount(item.likeCount);
+        setIsLiked(item.isLiked === true);
+      }
     } else {
       setIsFullscreen(false);
+      likeMutatedRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId]);
@@ -94,12 +97,12 @@ export function MediaViewer({
       return mediaApi.like(item.id, isLiked ? 'unlike' : 'like');
     },
     onMutate: async () => {
-      // Optimistically update
+      likeMutatedRef.current = true;
       setIsLiked(!isLiked);
       setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
     },
     onError: () => {
-      // Revert on error
+      likeMutatedRef.current = false;
       setIsLiked(isLiked);
       setLikeCount((prev) => (isLiked ? prev + 1 : prev - 1));
     },
@@ -125,41 +128,12 @@ export function MediaViewer({
     },
   });
 
-  // Favorite mutation with optimistic update
-  const favoriteMutation = useMutation({
-    mutationFn: async () => {
-      if (!item) throw new Error('No item');
-      return mediaApi.favorite(item.id, isFavorited ? 'remove' : 'add');
-    },
-    onMutate: async () => {
-      // Optimistically update
-      setIsFavorited(!isFavorited);
-    },
-    onError: () => {
-      // Revert on error
-      setIsFavorited(isFavorited);
-    },
-    onSuccess: (data) => {
-      setIsFavorited(data.isFavorited);
-      // Invalidate favorites queries
-      queryClient.invalidateQueries({ queryKey: ['favorites'] });
-    },
-  });
-
   const handleLike = () => {
     if (!isAuthenticated) {
       window.location.href = '/auth/login';
       return;
     }
     likeMutation.mutate();
-  };
-
-  const handleFavorite = () => {
-    if (!isAuthenticated) {
-      window.location.href = '/auth/login';
-      return;
-    }
-    favoriteMutation.mutate();
   };
 
   // Handle escape key
@@ -427,9 +401,6 @@ export function MediaViewer({
                 <button onClick={handleLike} className={`p-2 transition-colors ${isLiked ? 'text-red-500' : 'text-white/70 hover:text-white'}`}>
                   <HeartIcon className="w-5 h-5" />
                 </button>
-                <button onClick={handleFavorite} className={`p-2 transition-colors ${isFavorited ? 'text-yellow-500' : 'text-white/70 hover:text-white'}`}>
-                  <BookmarkIcon className="w-5 h-5" />
-                </button>
                 <button onClick={() => setShowComments(true)} className="p-2 text-white/70 hover:text-white transition-colors">
                   <CommentIcon className="w-5 h-5" />
                 </button>
@@ -566,14 +537,6 @@ export function MediaViewer({
                       {isLiked ? 'Liked' : 'Like'}
                     </button>
                     <button
-                      onClick={handleFavorite}
-                      disabled={favoriteMutation.isPending}
-                      className={`btn ${isFavorited ? 'btn-primary' : ''}`}
-                    >
-                      <BookmarkIcon className="w-4 h-4" />
-                      {isFavorited ? 'Saved' : 'Save'}
-                    </button>
-                    <button
                       onClick={() => setShowComments(true)}
                       className="btn"
                     >
@@ -701,14 +664,6 @@ function CommentIcon({ className }: { className?: string }) {
         d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"
         clipRule="evenodd"
       />
-    </svg>
-  );
-}
-
-function BookmarkIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 20 20" fill="currentColor">
-      <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
     </svg>
   );
 }

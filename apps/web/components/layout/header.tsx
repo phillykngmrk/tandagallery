@@ -49,7 +49,6 @@ export function Header() {
     { href: '/', label: 'Feed' },
     { href: '/trending', label: 'Most Viewed' },
     { href: '/tags', label: 'Tags' },
-    ...(isAuthenticated ? [{ href: '/favorites', label: 'Favorites' }] : []),
   ];
 
   const handleLogout = async () => {
@@ -136,13 +135,6 @@ export function Header() {
                             onClick={() => setShowUserMenu(false)}
                           >
                             Profile
-                          </Link>
-                          <Link
-                            href="/favorites"
-                            className="block px-4 py-2 text-sm text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--border)]/50 transition-colors"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            Favorites
                           </Link>
                           <div className="divider my-1" />
                           <button

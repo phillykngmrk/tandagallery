@@ -124,16 +124,6 @@ export const mediaApi = {
     });
   },
 
-  favorite: (id: string, action?: 'add' | 'remove') => {
-    return request<{ isFavorited: boolean; favoriteCount: number }>(
-      `/media/${id}/favorite`,
-      {
-        method: 'PUT',
-        body: action ? JSON.stringify({ action }) : undefined,
-      }
-    );
-  },
-
   getComments: (id: string, params?: { cursor?: string; limit?: number }) => {
     const searchParams = new URLSearchParams();
     if (params?.cursor) searchParams.set('cursor', params.cursor);
@@ -155,17 +145,6 @@ export const mediaApi = {
 
 // User API
 export const userApi = {
-  getFavorites: (params?: { cursor?: string; limit?: number }) => {
-    const searchParams = new URLSearchParams();
-    if (params?.cursor) searchParams.set('cursor', params.cursor);
-    if (params?.limit) searchParams.set('limit', params.limit.toString());
-
-    const query = searchParams.toString();
-    return request<PaginatedResponse<MediaItemSummary>>(
-      `/me/favorites${query ? `?${query}` : ''}`
-    );
-  },
-
   getLikes: (params?: { cursor?: string; limit?: number }) => {
     const searchParams = new URLSearchParams();
     if (params?.cursor) searchParams.set('cursor', params.cursor);

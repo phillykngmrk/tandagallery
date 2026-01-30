@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { feedQuerySchema, paginationSchema } from '@aggragif/shared';
 import { db } from '../../lib/db.js';
-import { mediaItems, likes, favorites } from '@aggragif/db/schema';
+import { mediaItems, likes } from '@aggragif/db/schema';
 import { desc, eq, and, isNull, gte, sql } from 'drizzle-orm';
 import { getProxyUrls } from '../../lib/proxy-urls.js';
 
@@ -69,32 +69,21 @@ export async function feedRoutes(app: FastifyInstance) {
     const hasMore = items.length > query.limit;
     const resultItems = hasMore ? items.slice(0, -1) : items;
 
-    // Get user's likes and favorites if authenticated
+    // Get user's likes if authenticated
     let userLikes: Set<string> = new Set();
-    let userFavorites: Set<string> = new Set();
 
     if (userId && resultItems.length > 0) {
       const itemIds = resultItems.map(i => i.id);
 
-      const [likeResults, favoriteResults] = await Promise.all([
-        db.query.likes.findMany({
-          where: (l, { and, eq, inArray }) => and(
-            eq(l.userId, userId),
-            inArray(l.mediaItemId, itemIds),
-          ),
-          columns: { mediaItemId: true },
-        }),
-        db.query.favorites.findMany({
-          where: (f, { and, eq, inArray }) => and(
-            eq(f.userId, userId),
-            inArray(f.mediaItemId, itemIds),
-          ),
-          columns: { mediaItemId: true },
-        }),
-      ]);
+      const likeResults = await db.query.likes.findMany({
+        where: (l, { and, eq, inArray }) => and(
+          eq(l.userId, userId),
+          inArray(l.mediaItemId, itemIds),
+        ),
+        columns: { mediaItemId: true },
+      });
 
       userLikes = new Set(likeResults.map(l => l.mediaItemId));
-      userFavorites = new Set(favoriteResults.map(f => f.mediaItemId));
     }
 
     // Transform results
@@ -116,7 +105,6 @@ export async function feedRoutes(app: FastifyInstance) {
         commentCount: item.commentCount,
         publishedAt: item.postedAt?.toISOString() || null,
         isLiked: userId ? userLikes.has(item.id) : null,
-        isFavorited: userId ? userFavorites.has(item.id) : null,
         tags: (item.tags as string[]) || [],
       })),
       pagination: {
@@ -196,32 +184,21 @@ export async function feedRoutes(app: FastifyInstance) {
     const hasMore = items.length > query.limit;
     const resultItems = hasMore ? items.slice(0, -1) : items;
 
-    // Get user's likes and favorites
+    // Get user's likes
     let userLikes: Set<string> = new Set();
-    let userFavorites: Set<string> = new Set();
 
     if (userId && resultItems.length > 0) {
       const itemIds = resultItems.map(i => i.id);
 
-      const [likeResults, favoriteResults] = await Promise.all([
-        db.query.likes.findMany({
-          where: (l, { and: a, eq: e, inArray }) => a(
-            e(l.userId, userId),
-            inArray(l.mediaItemId, itemIds),
-          ),
-          columns: { mediaItemId: true },
-        }),
-        db.query.favorites.findMany({
-          where: (f, { and: a, eq: e, inArray }) => a(
-            e(f.userId, userId),
-            inArray(f.mediaItemId, itemIds),
-          ),
-          columns: { mediaItemId: true },
-        }),
-      ]);
+      const likeResults = await db.query.likes.findMany({
+        where: (l, { and: a, eq: e, inArray }) => a(
+          e(l.userId, userId),
+          inArray(l.mediaItemId, itemIds),
+        ),
+        columns: { mediaItemId: true },
+      });
 
       userLikes = new Set(likeResults.map(l => l.mediaItemId));
-      userFavorites = new Set(favoriteResults.map(f => f.mediaItemId));
     }
 
     const nextOffset = offset + query.limit;
@@ -240,7 +217,6 @@ export async function feedRoutes(app: FastifyInstance) {
         viewCount: item.viewCount,
         publishedAt: item.postedAt?.toISOString() || null,
         isLiked: userId ? userLikes.has(item.id) : null,
-        isFavorited: userId ? userFavorites.has(item.id) : null,
         tags: (item.tags as string[]) || [],
       })),
       pagination: {
@@ -307,7 +283,6 @@ export async function feedRoutes(app: FastifyInstance) {
         commentCount: item.commentCount,
         publishedAt: item.postedAt?.toISOString() || null,
         isLiked: null,
-        isFavorited: null,
       })),
       pagination: {
         nextCursor: null,

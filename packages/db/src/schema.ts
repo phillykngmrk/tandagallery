@@ -117,7 +117,6 @@ export const mediaItems = pgTable('media_items', {
   // Engagement counts (denormalized for performance)
   likeCount: integer('like_count').notNull().default(0),
   commentCount: integer('comment_count').notNull().default(0),
-  favoriteCount: integer('favorite_count').notNull().default(0),
   viewCount: integer('view_count').notNull().default(0),
   // Moderation flags
   isHidden: boolean('is_hidden').notNull().default(false),
@@ -295,21 +294,6 @@ export const likes = pgTable('likes', {
   index('likes_user_idx').on(table.userId, table.createdAt),
 ]);
 
-/**
- * Favorites: User bookmarks (separate from likes)
- */
-export const favorites = pgTable('favorites', {
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  mediaItemId: uuid('media_item_id').notNull().references(() => mediaItems.id, { onDelete: 'cascade' }),
-  // Optional collection/folder name
-  collectionName: varchar('collection_name', { length: 100 }),
-  notes: text('notes'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [
-  primaryKey({ columns: [table.userId, table.mediaItemId] }),
-  index('favorites_user_idx').on(table.userId, table.createdAt),
-  index('favorites_item_idx').on(table.mediaItemId),
-]);
 
 /**
  * Comments: User comments with 1-level threading
@@ -467,7 +451,6 @@ export const mediaItemsRelations = relations(mediaItems, ({ one, many }) => ({
   thread: one(threads, { fields: [mediaItems.threadId], references: [threads.id] }),
   assets: many(mediaAssets),
   likes: many(likes),
-  favorites: many(favorites),
   comments: many(comments),
 }));
 
@@ -478,7 +461,6 @@ export const mediaAssetsRelations = relations(mediaAssets, ({ one }) => ({
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   likes: many(likes),
-  favorites: many(favorites),
   comments: many(comments),
   follows: many(follows),
   reports: many(reports),
@@ -494,10 +476,6 @@ export const likesRelations = relations(likes, ({ one }) => ({
   mediaItem: one(mediaItems, { fields: [likes.mediaItemId], references: [mediaItems.id] }),
 }));
 
-export const favoritesRelations = relations(favorites, ({ one }) => ({
-  user: one(users, { fields: [favorites.userId], references: [users.id] }),
-  mediaItem: one(mediaItems, { fields: [favorites.mediaItemId], references: [mediaItems.id] }),
-}));
 
 export const commentsRelations = relations(comments, ({ one, many }) => ({
   user: one(users, { fields: [comments.userId], references: [users.id] }),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -8,14 +8,12 @@ import { useAuth } from '@/lib/auth';
 import { userApi } from '@/lib/api';
 import { MediaCard } from '@/components/feed/media-card';
 import { MediaViewer } from '@/components/media/media-viewer';
+import { useState } from 'react';
 import type { MediaItemSummary } from '@aggragif/shared';
-
-type Tab = 'likes' | 'favorites';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>('likes');
 
   const [selectedItem, setSelectedItem] = useState<MediaItemSummary | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
@@ -37,31 +35,19 @@ export default function ProfilePage() {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) =>
       lastPage.pagination.hasMore ? lastPage.pagination.nextCursor : undefined,
-    enabled: isAuthenticated && activeTab === 'likes',
+    enabled: isAuthenticated,
   });
 
-  const favoritesQuery = useInfiniteQuery({
-    queryKey: ['favorites'],
-    queryFn: async ({ pageParam }) => {
-      return userApi.getFavorites({ cursor: pageParam, limit: 24 });
-    },
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) =>
-      lastPage.pagination.hasMore ? lastPage.pagination.nextCursor : undefined,
-    enabled: isAuthenticated && activeTab === 'favorites',
-  });
-
-  const activeQuery = activeTab === 'likes' ? likesQuery : favoritesQuery;
-  const allItems = activeQuery.data?.pages.flatMap((page) => page.items) || [];
+  const allItems = likesQuery.data?.pages.flatMap((page) => page.items) || [];
 
   const handleObserver = useCallback(
     (entries: IntersectionObserverEntry[]) => {
       const [entry] = entries;
-      if (entry?.isIntersecting && activeQuery.hasNextPage && !activeQuery.isFetchingNextPage) {
-        activeQuery.fetchNextPage();
+      if (entry?.isIntersecting && likesQuery.hasNextPage && !likesQuery.isFetchingNextPage) {
+        likesQuery.fetchNextPage();
       }
     },
-    [activeQuery]
+    [likesQuery]
   );
 
   useEffect(() => {
@@ -114,11 +100,6 @@ export default function ProfilePage() {
     setSelectedIndex(-1);
   };
 
-  // Clear selection when switching tabs
-  useEffect(() => {
-    handleClose();
-  }, [activeTab]);
-
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -130,14 +111,6 @@ export default function ProfilePage() {
   if (!isAuthenticated || !user) {
     return null;
   }
-
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'likes', label: 'Likes' },
-    { id: 'favorites', label: 'Favorites' },
-  ];
-
-  const likeCount = likesQuery.data?.pages[0]?.items.length ?? 0;
-  const favCount = favoritesQuery.data?.pages[0]?.items.length ?? 0;
 
   return (
     <>
@@ -158,28 +131,13 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex gap-6 border-b border-[var(--border)] fade-in fade-in-delay-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`pb-4 text-sm transition-colors ${
-                    activeTab === tab.id
-                      ? 'text-[var(--fg)] border-b border-[var(--fg)]'
-                      : 'text-[var(--muted)] hover:text-[var(--fg)]'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            <h2 className="text-sm text-[var(--muted)] mb-4 fade-in fade-in-delay-1">Liked items</h2>
           </div>
         </section>
 
-        {/* Tab content */}
+        {/* Likes content */}
         <section className="py-1">
-          {activeQuery.isLoading ? (
+          {likesQuery.isLoading ? (
             <div className="feed-grid">
               {Array.from({ length: 12 }).map((_, i) => (
                 <div key={i} className="media-card">
@@ -187,22 +145,18 @@ export default function ProfilePage() {
                 </div>
               ))}
             </div>
-          ) : activeQuery.isError ? (
+          ) : likesQuery.isError ? (
             <div className="flex flex-col items-center justify-center py-24 text-center">
               <p className="text-[var(--fg)] mb-2">Failed to load</p>
               <p className="text-caption">
-                {activeQuery.error instanceof Error ? activeQuery.error.message : 'Unknown error'}
+                {likesQuery.error instanceof Error ? likesQuery.error.message : 'Unknown error'}
               </p>
             </div>
           ) : allItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-center fade-in">
-              <p className="text-[var(--fg)] mb-2">
-                {activeTab === 'likes' ? 'No likes yet' : 'No favorites yet'}
-              </p>
+              <p className="text-[var(--fg)] mb-2">No likes yet</p>
               <p className="text-caption mb-6">
-                {activeTab === 'likes'
-                  ? 'Items you like will appear here'
-                  : 'Save items from the feed to build your collection'}
+                Items you like will appear here
               </p>
               <Link href="/" className="btn">
                 Browse feed
@@ -222,16 +176,16 @@ export default function ProfilePage() {
               </div>
 
               <div ref={loadMoreRef} className="flex justify-center py-12">
-                {activeQuery.isFetchingNextPage ? (
+                {likesQuery.isFetchingNextPage ? (
                   <div className="flex items-center gap-3 text-caption">
                     <span className="inline-block w-4 h-4 border border-[var(--border)] border-t-[var(--fg)] rounded-full animate-spin" />
                     Loading
                   </div>
-                ) : activeQuery.hasNextPage ? (
+                ) : likesQuery.hasNextPage ? (
                   <div className="h-8" />
                 ) : (
                   <p className="text-caption">
-                    {allItems.length} {activeTab === 'likes' ? 'liked' : 'saved'} {allItems.length === 1 ? 'item' : 'items'}
+                    {allItems.length} liked {allItems.length === 1 ? 'item' : 'items'}
                   </p>
                 )}
               </div>

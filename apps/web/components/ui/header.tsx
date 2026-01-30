@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { href: '/', label: 'Home' },
   { href: '/trending', label: 'Trending' },
-  { href: '/favorites', label: 'Favorites' },
 ];
 
 export function Header() {
