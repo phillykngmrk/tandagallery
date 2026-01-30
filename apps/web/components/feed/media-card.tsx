@@ -91,6 +91,21 @@ export function MediaCard({ item, index }: MediaCardProps) {
           unoptimized
         />
 
+        {/* Animated GIF overlay: load actual .gif when near viewport */}
+        {isActualGif && isNear && (
+          <img
+            src={item.mediaUrl}
+            alt=""
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+        )}
+
         {/* Video preview: always mounted for playable items, src set lazily */}
         {isPlayable && (
           <video
