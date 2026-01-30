@@ -27,7 +27,7 @@ export class RedditAdapter extends BaseAdapter {
     try {
       const subreddit = this.config.externalId;
       const res = await this.redditFetch(
-        `https://www.reddit.com/r/${subreddit}/top.json?t=day&limit=1`
+        `https://www.reddit.com/r/${subreddit}/new.json?&limit=1`
       );
       const data = res as RedditListing;
       if (!data?.data?.children) {
@@ -62,7 +62,7 @@ export class RedditAdapter extends BaseAdapter {
     // So reverse-map: scanner page N → reddit page (totalPages - N + 1)
     const redditPage = 10 - pageNumber + 1;
 
-    let url = `https://www.reddit.com/r/${subreddit}/top.json?t=day&limit=${ITEMS_PER_PAGE}&raw_json=1`;
+    let url = `https://www.reddit.com/r/${subreddit}/new.json?&limit=${ITEMS_PER_PAGE}&raw_json=1`;
 
     // For pages beyond the first, use the 'after' cursor from previous page
     if (redditPage > 1) {
@@ -100,7 +100,7 @@ export class RedditAdapter extends BaseAdapter {
     for (let page = 1; page < targetPage; page++) {
       if (this.afterCursors.has(page)) continue;
 
-      let url = `https://www.reddit.com/r/${subreddit}/top.json?t=day&limit=${ITEMS_PER_PAGE}&raw_json=1`;
+      let url = `https://www.reddit.com/r/${subreddit}/new.json?&limit=${ITEMS_PER_PAGE}&raw_json=1`;
       if (page > 1) {
         const prevCursor = this.afterCursors.get(page - 1);
         if (prevCursor) url += `&after=${prevCursor}`;
