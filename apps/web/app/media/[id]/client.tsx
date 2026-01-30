@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { mediaApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { CommentsDrawer } from '@/components/comments/comments-drawer';
 import { ReportModal } from '@/components/moderation/report-modal';
 
@@ -13,7 +13,8 @@ interface MediaDetailClientProps {
 }
 
 export function MediaDetailClient({ id }: MediaDetailClientProps) {
-  const router = useRouter();
+  const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
 
   const [showComments, setShowComments] = useState(false);
   const [showReport, setShowReport] = useState(false);
@@ -33,14 +34,44 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
     enabled: !!id,
   });
 
+  const likeMutation = useMutation({
+    mutationFn: () => mediaApi.like(id, item?.isLiked ? 'unlike' : 'like'),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['media', id] });
+      const previous = queryClient.getQueryData(['media', id]);
+      queryClient.setQueryData(['media', id], (old: typeof item) => {
+        if (!old) return old;
+        return {
+          ...old,
+          isLiked: !old.isLiked,
+          likeCount: old.isLiked ? old.likeCount - 1 : old.likeCount + 1,
+        };
+      });
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['media', id], context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['media', id] });
+    },
+  });
+
+  const handleLike = () => {
+    if (!isAuthenticated) return;
+    likeMutation.mutate();
+  };
+
   // Keyboard navigation (left/right arrows)
   const navigatePrev = useCallback(() => {
-    if (adjacent?.prev) router.push(`/media/${adjacent.prev.id}`);
-  }, [adjacent?.prev, router]);
+    if (adjacent?.prev) window.location.href = `/media/${adjacent.prev.id}`;
+  }, [adjacent?.prev]);
 
   const navigateNext = useCallback(() => {
-    if (adjacent?.next) router.push(`/media/${adjacent.next.id}`);
-  }, [adjacent?.next, router]);
+    if (adjacent?.next) window.location.href = `/media/${adjacent.next.id}`;
+  }, [adjacent?.next]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -199,6 +230,14 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
 
                 <div className="flex items-center gap-6 text-caption mb-6">
                   <button
+                    onClick={handleLike}
+                    className={`flex items-center gap-2 transition-colors ${item.isLiked ? 'text-red-400' : 'hover:text-[var(--fg)]'}`}
+                    disabled={!isAuthenticated}
+                  >
+                    <HeartIcon className="w-4 h-4" filled={!!item.isLiked} />
+                    {item.likeCount.toLocaleString()} likes
+                  </button>
+                  <button
                     onClick={() => setShowComments(true)}
                     className="flex items-center gap-2 hover:text-[var(--fg)] transition-colors"
                   >
@@ -210,6 +249,16 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
 
                 {/* Action buttons */}
                 <div className="flex flex-wrap gap-3">
+                  {isAuthenticated && (
+                    <button
+                      onClick={handleLike}
+                      className={item.isLiked ? 'btn btn-primary' : 'btn'}
+                      disabled={likeMutation.isPending}
+                    >
+                      <HeartIcon className="w-4 h-4" filled={!!item.isLiked} />
+                      {item.isLiked ? 'Liked' : 'Like'}
+                    </button>
+                  )}
                   <button
                     onClick={() => setShowComments(true)}
                     className="btn"
@@ -337,6 +386,21 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
 }
 
 // Icons
+function HeartIcon({ className, filled }: { className?: string; filled?: boolean }) {
+  if (filled) {
+    return (
+      <svg className={className} viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+      </svg>
+    );
+  }
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+    </svg>
+  );
+}
+
 function CommentIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="currentColor">

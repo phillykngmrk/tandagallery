@@ -10,7 +10,7 @@ export default function HomePage() {
             T & A Gallery
           </h1>
           <p className="text-body text-[var(--muted)] max-w-xl fade-in fade-in-delay-1">
-            Titties and Ass Gallery — A carefully curated collection of the finest GIFs
+            A carefully curated collection of the finest GIFs
             and short videos from across the web. Updated continuously.
           </p>
         </div>
