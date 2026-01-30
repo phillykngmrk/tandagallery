@@ -77,7 +77,7 @@ export function MediaCard({ item, index }: MediaCardProps) {
         {/* Thumbnail image */}
         <Image
           src={imgSrc}
-          alt={item.title || 'Media item'}
+          alt={item.title ? `${item.title} - ${item.type}` : `${item.type === 'gif' ? 'GIF' : item.type === 'video' ? 'Video' : 'Image'} content`}
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1536px) 25vw, 20vw"
           className={`media-card-image ${isLoaded ? 'opacity-100' : 'opacity-0'}`}

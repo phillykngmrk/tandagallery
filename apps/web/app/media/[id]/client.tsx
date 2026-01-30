@@ -191,7 +191,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
               ) : (
                 <img
                   src={item.mediaUrl}
-                  alt={item.title || 'Media item'}
+                  alt={item.title ? `${item.title} - ${item.type}` : `${item.type === 'gif' ? 'GIF' : item.type === 'video' ? 'Video' : 'Image'} content on T & A Gallery`}
                   className="max-w-full max-h-[85vh] object-contain"
                   loading="eager"
                   onError={() => setMediaError(true)}
