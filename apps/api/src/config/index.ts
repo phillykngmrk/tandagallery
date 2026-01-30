@@ -28,7 +28,7 @@ const envSchema = z.object({
   API_PUBLIC_URL: z.string().optional(),
 
   // Ingestion
-  INGEST_POLL_INTERVAL_MS: z.coerce.number().default(3600000), // 1 hour
+  INGEST_POLL_INTERVAL_MS: z.coerce.number().default(1200000), // 20 minutes
   INGEST_MAX_PAGES_PER_RUN: z.coerce.number().default(10),
   INGEST_MAX_CONCURRENT_SOURCES: z.coerce.number().default(5),
 
