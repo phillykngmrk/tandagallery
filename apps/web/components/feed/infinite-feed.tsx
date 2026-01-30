@@ -1,11 +1,9 @@
 'use client';
 
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { feedApi } from '@/lib/api';
 import { MediaCard } from './media-card';
-import { MediaViewer } from '../media/media-viewer';
-import type { MediaItemSummary } from '@aggragif/shared';
 
 interface InfiniteFeedProps {
   type?: 'recent' | 'trending';
@@ -17,10 +15,6 @@ interface InfiniteFeedProps {
 export function InfiniteFeed({ type = 'recent', mediaType, period, tag }: InfiniteFeedProps) {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
-
-  // Selected item for overlay viewer
-  const [selectedItem, setSelectedItem] = useState<MediaItemSummary | null>(null);
-  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 
   const {
     data,
@@ -83,38 +77,6 @@ export function InfiniteFeed({ type = 'recent', mediaType, period, tag }: Infini
     });
   })();
 
-  // Handle item selection
-  const handleSelectItem = (item: MediaItemSummary) => {
-    const index = allItems.findIndex((i) => i.id === item.id);
-    setSelectedItem(item);
-    setSelectedIndex(index);
-  };
-
-  // Navigate to next/previous
-  const handleNext = () => {
-    if (selectedIndex < allItems.length - 1) {
-      const nextItem = allItems[selectedIndex + 1];
-      if (nextItem) {
-        setSelectedItem(nextItem);
-        setSelectedIndex(selectedIndex + 1);
-      }
-    }
-  };
-
-  const handlePrevious = () => {
-    if (selectedIndex > 0) {
-      const prevItem = allItems[selectedIndex - 1];
-      if (prevItem) {
-        setSelectedItem(prevItem);
-        setSelectedIndex(selectedIndex - 1);
-      }
-    }
-  };
-
-  const handleClose = () => {
-    setSelectedItem(null);
-    setSelectedIndex(-1);
-  };
 
   // Loading state
   if (isLoading) {
@@ -160,7 +122,6 @@ export function InfiniteFeed({ type = 'recent', mediaType, period, tag }: Infini
             key={item.id}
             item={item}
             index={index}
-            onSelect={handleSelectItem}
           />
         ))}
       </div>
@@ -178,16 +139,6 @@ export function InfiniteFeed({ type = 'recent', mediaType, period, tag }: Infini
           <p className="text-caption">End of feed</p>
         )}
       </div>
-
-      {/* Media viewer overlay */}
-      <MediaViewer
-        item={selectedItem}
-        onClose={handleClose}
-        onNext={handleNext}
-        onPrevious={handlePrevious}
-        hasNext={selectedIndex < allItems.length - 1}
-        hasPrevious={selectedIndex > 0}
-      />
     </>
   );
 }

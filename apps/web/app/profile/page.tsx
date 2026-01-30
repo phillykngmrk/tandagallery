@@ -7,16 +7,10 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { userApi } from '@/lib/api';
 import { MediaCard } from '@/components/feed/media-card';
-import { MediaViewer } from '@/components/media/media-viewer';
-import { useState } from 'react';
-import type { MediaItemSummary } from '@aggragif/shared';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-
-  const [selectedItem, setSelectedItem] = useState<MediaItemSummary | null>(null);
-  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -69,36 +63,6 @@ export default function ProfilePage() {
     };
   }, [handleObserver]);
 
-  const handleSelectItem = (item: MediaItemSummary) => {
-    const index = allItems.findIndex((i) => i.id === item.id);
-    setSelectedItem(item);
-    setSelectedIndex(index);
-  };
-
-  const handleNext = () => {
-    if (selectedIndex < allItems.length - 1) {
-      const nextItem = allItems[selectedIndex + 1];
-      if (nextItem) {
-        setSelectedItem(nextItem);
-        setSelectedIndex(selectedIndex + 1);
-      }
-    }
-  };
-
-  const handlePrevious = () => {
-    if (selectedIndex > 0) {
-      const prevItem = allItems[selectedIndex - 1];
-      if (prevItem) {
-        setSelectedItem(prevItem);
-        setSelectedIndex(selectedIndex - 1);
-      }
-    }
-  };
-
-  const handleClose = () => {
-    setSelectedItem(null);
-    setSelectedIndex(-1);
-  };
 
   if (authLoading) {
     return (
@@ -170,7 +134,7 @@ export default function ProfilePage() {
                     key={item.id}
                     item={item}
                     index={index}
-                    onSelect={handleSelectItem}
+
                   />
                 ))}
               </div>
@@ -194,14 +158,6 @@ export default function ProfilePage() {
         </section>
       </div>
 
-      <MediaViewer
-        item={selectedItem}
-        onClose={handleClose}
-        onNext={handleNext}
-        onPrevious={handlePrevious}
-        hasNext={selectedIndex < allItems.length - 1}
-        hasPrevious={selectedIndex > 0}
-      />
     </>
   );
 }

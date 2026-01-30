@@ -2,21 +2,21 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import type { MediaItemSummary } from '@aggragif/shared';
 import { useVisibility } from '@/hooks/use-visibility';
 
 interface MediaCardProps {
   item: MediaItemSummary;
   index: number;
-  onSelect: (item: MediaItemSummary) => void;
 }
 
-export function MediaCard({ item, index, onSelect }: MediaCardProps) {
+export function MediaCard({ item, index }: MediaCardProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [imgSrc, setImgSrc] = useState(item.thumbnailUrl);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [cardRef, isVisible, isNear] = useVisibility<HTMLElement>();
+  const [cardRef, isVisible, isNear] = useVisibility<HTMLAnchorElement>();
 
   // Actual .gif files can't play in <video> tags — treat them as images
   const isActualGif = item.mediaUrl.endsWith('.gif');
@@ -66,20 +66,12 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
   };
 
   return (
-    <article
+    <Link
       ref={cardRef}
-      className="media-card"
-      onClick={() => onSelect(item)}
+      href={`/media/${item.id}`}
+      className="media-card block"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelect(item);
-        }
-      }}
     >
       <div className="media-card-inner">
         {/* Thumbnail image */}
@@ -159,7 +151,7 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
           </div>
         </div>
       </div>
-    </article>
+    </Link>
   );
 }
 
