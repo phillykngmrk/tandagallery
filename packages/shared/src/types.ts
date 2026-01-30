@@ -60,6 +60,7 @@ export interface MediaItemSummary {
   height: number | null;
   likeCount: number;
   commentCount: number;
+  viewCount: number;
   publishedAt: string | null;
   isLiked: boolean | null;
   tags?: string[];
@@ -72,7 +73,6 @@ export interface MediaItemDetail extends MediaItemSummary {
   authorUrl: string | null;
   permalink: string;
   tags: string[];
-  viewCount: number;
   isCommentsLocked: boolean;
   ingestedAt: string;
 }
