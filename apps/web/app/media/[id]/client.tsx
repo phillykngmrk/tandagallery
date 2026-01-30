@@ -248,18 +248,13 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
                   <button
                     className="btn"
                     onClick={() => {
-                      if (navigator.share) {
-                        navigator.share({
-                          title: item.title || 'Check this out',
-                          url: window.location.href,
-                        });
-                      } else {
-                        navigator.clipboard.writeText(window.location.href);
-                      }
+                      const url = encodeURIComponent(window.location.href);
+                      const text = encodeURIComponent(item.title || 'Check this out');
+                      window.open(`https://x.com/intent/tweet?url=${url}&text=${text}`, '_blank');
                     }}
                   >
-                    <ShareIcon className="w-4 h-4" />
-                    Share
+                    <XIcon className="w-4 h-4" />
+                    Share on X
                   </button>
                 </div>
 
@@ -394,10 +389,10 @@ function CommentIcon({ className }: { className?: string }) {
   );
 }
 
-function ShareIcon({ className }: { className?: string }) {
+function XIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 20 20" fill="currentColor">
-      <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
     </svg>
   );
 }

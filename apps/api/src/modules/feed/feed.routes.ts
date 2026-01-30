@@ -162,7 +162,7 @@ export async function feedRoutes(app: FastifyInstance) {
 
     const items = await db.query.mediaItems.findMany({
       where: and(...conditions),
-      orderBy: (m, { desc }) => [desc(m.likeCount), desc(m.postedAt)],
+      orderBy: (m, { desc }) => [desc(m.viewCount), desc(m.likeCount), desc(m.postedAt)],
       limit: query.limit + 1,
       offset,
       columns: {
