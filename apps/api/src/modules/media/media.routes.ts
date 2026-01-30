@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { db } from '../../lib/db.js';
 import { mediaItems, likes, comments, sources } from '@aggragif/db/schema';
-import { eq, and, isNull, sql } from 'drizzle-orm';
+import { eq, and, isNull, sql, gt, lt, desc, asc } from 'drizzle-orm';
 import { getProxyUrls } from '../../lib/proxy-urls.js';
 import { isR2Enabled, uploadToR2 } from '../../lib/r2.js';
 import { isAllowedUrl, buildSourceHeaders, safeFetchMedia, correctContentType } from '../../lib/media-fetcher.js';
@@ -307,6 +307,45 @@ export async function mediaRoutes(app: FastifyInstance) {
         height: a.height,
         position: a.position,
       })),
+    };
+  });
+
+  // Get adjacent (prev/next) media items for navigation
+  app.get('/:id/adjacent', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+
+    const item = await db.query.mediaItems.findFirst({
+      where: (m, { and, eq, isNull }) => and(eq(m.id, id), eq(m.isHidden, false), isNull(m.deletedAt)),
+      columns: { createdAt: true },
+    });
+
+    if (!item) {
+      return reply.status(404).send({ error: 'Not Found' });
+    }
+
+    const baseWhere = and(
+      eq(mediaItems.isHidden, false),
+      isNull(mediaItems.deletedAt),
+    );
+
+    const [prev, next] = await Promise.all([
+      // Previous = newer item (higher createdAt)
+      db.select({ id: mediaItems.id, title: mediaItems.title, mediaType: mediaItems.mediaType })
+        .from(mediaItems)
+        .where(and(baseWhere, gt(mediaItems.createdAt, item.createdAt)))
+        .orderBy(asc(mediaItems.createdAt))
+        .limit(1),
+      // Next = older item (lower createdAt)
+      db.select({ id: mediaItems.id, title: mediaItems.title, mediaType: mediaItems.mediaType })
+        .from(mediaItems)
+        .where(and(baseWhere, lt(mediaItems.createdAt, item.createdAt)))
+        .orderBy(desc(mediaItems.createdAt))
+        .limit(1),
+    ]);
+
+    return {
+      prev: prev[0] ? { id: prev[0].id } : null,
+      next: next[0] ? { id: next[0].id } : null,
     };
   });
 

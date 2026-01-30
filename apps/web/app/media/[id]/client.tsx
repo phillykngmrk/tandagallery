@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { mediaApi } from '@/lib/api';
 import { CommentsDrawer } from '@/components/comments/comments-drawer';
 import { ReportModal } from '@/components/moderation/report-modal';
@@ -12,6 +13,7 @@ interface MediaDetailClientProps {
 }
 
 export function MediaDetailClient({ id }: MediaDetailClientProps) {
+  const router = useRouter();
 
   const [showComments, setShowComments] = useState(false);
   const [showReport, setShowReport] = useState(false);
@@ -24,6 +26,31 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
+
+  const { data: adjacent } = useQuery({
+    queryKey: ['media-adjacent', id],
+    queryFn: () => mediaApi.getAdjacent(id),
+    enabled: !!id,
+  });
+
+  // Keyboard navigation (left/right arrows)
+  const navigatePrev = useCallback(() => {
+    if (adjacent?.prev) router.push(`/media/${adjacent.prev.id}`);
+  }, [adjacent?.prev, router]);
+
+  const navigateNext = useCallback(() => {
+    if (adjacent?.next) router.push(`/media/${adjacent.next.id}`);
+  }, [adjacent?.next, router]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'ArrowLeft') navigatePrev();
+      if (e.key === 'ArrowRight') navigateNext();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigatePrev, navigateNext]);
 
   // Sync media error state when item changes
   const itemId = item?.id;
@@ -96,8 +123,30 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
 
         <div className="container-wide pb-20">
           <div className="max-w-7xl mx-auto">
-            {/* Media */}
-            <div className={`video-container mb-8 ${isVideo ? 'aspect-video' : 'relative flex items-center justify-center'}`} style={!isVideo ? { minHeight: '50vh', maxHeight: '85vh' } : undefined}>
+            {/* Media with navigation */}
+            <div className="relative mb-8">
+              {/* Prev arrow */}
+              {adjacent?.prev && (
+                <button
+                  onClick={navigatePrev}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 w-10 h-10 flex items-center justify-center bg-black/50 hover:bg-black/70 text-white/70 hover:text-white transition-all rounded-full backdrop-blur-sm"
+                  aria-label="Previous"
+                >
+                  <ChevronLeftIcon className="w-5 h-5" />
+                </button>
+              )}
+              {/* Next arrow */}
+              {adjacent?.next && (
+                <button
+                  onClick={navigateNext}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 w-10 h-10 flex items-center justify-center bg-black/50 hover:bg-black/70 text-white/70 hover:text-white transition-all rounded-full backdrop-blur-sm"
+                  aria-label="Next"
+                >
+                  <ChevronRightIcon className="w-5 h-5" />
+                </button>
+              )}
+
+            <div className={`video-container ${isVideo ? 'aspect-video' : 'relative flex items-center justify-center'}`} style={!isVideo ? { minHeight: '50vh', maxHeight: '85vh' } : undefined}>
               {mediaError ? (
                 <div className="flex flex-col items-center justify-center gap-4 py-20 text-[var(--muted)]">
                   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -131,6 +180,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
                   onError={() => setMediaError(true)}
                 />
               )}
+            </div>
             </div>
 
             {/* Info section */}
@@ -303,6 +353,22 @@ function XIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
+function ChevronLeftIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
     </svg>
   );
 }

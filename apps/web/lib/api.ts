@@ -135,6 +135,10 @@ export const mediaApi = {
     );
   },
 
+  getAdjacent: (id: string) => {
+    return request<{ prev: { id: string } | null; next: { id: string } | null }>(`/media/${id}/adjacent`);
+  },
+
   createComment: (id: string, content: string, parentId?: string) => {
     return request<Comment>(`/media/${id}/comments`, {
       method: 'POST',
