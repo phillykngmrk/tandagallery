@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { mediaApi } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
 import { CommentsDrawer } from '@/components/comments/comments-drawer';
 import { ReportModal } from '@/components/moderation/report-modal';
 
@@ -13,14 +12,9 @@ interface MediaDetailClientProps {
 }
 
 export function MediaDetailClient({ id }: MediaDetailClientProps) {
-  const { isAuthenticated } = useAuth();
-  const queryClient = useQueryClient();
 
   const [showComments, setShowComments] = useState(false);
   const [showReport, setShowReport] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
-  const isLikedRef = useRef(false);
   const [mediaError, setMediaError] = useState(false);
 
   const { data: item, isLoading, isError, error } = useQuery({
@@ -31,73 +25,14 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
-  // Keep ref in sync with state
-  useEffect(() => {
-    isLikedRef.current = isLiked;
-  }, [isLiked]);
-
-  // Sync state with fetched data only when item ID changes (not on every refetch)
+  // Sync media error state when item changes
   const itemId = item?.id;
   useEffect(() => {
     if (item) {
-      setLikeCount(item.likeCount);
-      setIsLiked(item.isLiked ?? false);
       setMediaError(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId]);
-
-  // Like mutation (uses ref to avoid stale closure)
-  const likeMutation = useMutation({
-    mutationFn: async () => {
-      const wasLiked = isLikedRef.current;
-      return mediaApi.like(id, wasLiked ? 'unlike' : 'like');
-    },
-    onMutate: async () => {
-      const wasLiked = isLikedRef.current;
-      setIsLiked(!wasLiked);
-      setLikeCount((prev) => (wasLiked ? prev - 1 : prev + 1));
-      return { wasLiked };
-    },
-    onError: (_err, _vars, context) => {
-      if (context) {
-        setIsLiked(context.wasLiked);
-        setLikeCount((prev) => (context.wasLiked ? prev + 1 : prev - 1));
-      }
-    },
-    onSuccess: (data) => {
-      setIsLiked(data.isLiked);
-      setLikeCount(data.likeCount);
-      // Update detail query cache so refetch won't overwrite local state
-      queryClient.setQueryData(['media', id], (old: Record<string, unknown> | undefined) =>
-        old ? { ...old, isLiked: data.isLiked, likeCount: data.likeCount } : old
-      );
-      // Update feed cache in-place
-      queryClient.setQueriesData<{ pages: { items: { id: string; isLiked: boolean | null; likeCount: number }[] }[] }>(
-        { queryKey: ['feed'] },
-        (old) => {
-          if (!old?.pages) return old;
-          return {
-            ...old,
-            pages: old.pages.map((page) => ({
-              ...page,
-              items: page.items.map((i) =>
-                i.id === id ? { ...i, isLiked: data.isLiked, likeCount: data.likeCount } : i
-              ),
-            })),
-          };
-        },
-      );
-    },
-  });
-
-  const handleLike = () => {
-    if (!isAuthenticated) {
-      window.location.href = '/auth/login';
-      return;
-    }
-    likeMutation.mutate();
-  };
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -214,10 +149,6 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
                 )}
 
                 <div className="flex items-center gap-6 text-caption mb-6">
-                  <span className="flex items-center gap-2">
-                    <HeartIcon className="w-4 h-4" />
-                    {likeCount.toLocaleString()} likes
-                  </span>
                   <button
                     onClick={() => setShowComments(true)}
                     className="flex items-center gap-2 hover:text-[var(--fg)] transition-colors"
@@ -230,14 +161,6 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
 
                 {/* Action buttons */}
                 <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={handleLike}
-                    disabled={likeMutation.isPending}
-                    className={`btn ${isLiked ? 'btn-primary' : ''}`}
-                  >
-                    <HeartIcon className="w-4 h-4" />
-                    {isLiked ? 'Liked' : 'Like'}
-                  </button>
                   <button
                     onClick={() => setShowComments(true)}
                     className="btn"
@@ -365,18 +288,6 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
 }
 
 // Icons
-function HeartIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 20 20" fill="currentColor">
-      <path
-        fillRule="evenodd"
-        d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-}
-
 function CommentIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="currentColor">
