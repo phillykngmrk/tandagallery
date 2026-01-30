@@ -214,9 +214,6 @@ async function triggerIngestion(_sourceId: string, threadId?: string) {
   const response = await fetch(endpoint, {
     method: 'POST',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
   });
 
   if (!response.ok) {
