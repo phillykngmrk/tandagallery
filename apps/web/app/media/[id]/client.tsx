@@ -114,15 +114,14 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
               ) : isVideo ? (
                 <video
                   className="w-full h-full object-contain"
+                  src={item.mediaUrl}
                   controls
                   autoPlay
                   loop
                   muted
                   playsInline
                   onError={() => setMediaError(true)}
-                >
-                  <source src={item.mediaUrl} />
-                </video>
+                />
               ) : (
                 <img
                   src={item.mediaUrl}
