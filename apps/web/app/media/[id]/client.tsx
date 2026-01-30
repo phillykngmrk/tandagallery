@@ -114,7 +114,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
           </Link>
         </section>
         <div className="container-wide pb-16">
-          <div className="max-w-5xl mx-auto">
+          <div className="max-w-7xl mx-auto">
             <div className="aspect-video skeleton mb-8" />
             <div className="space-y-4">
               <div className="w-64 h-8 skeleton" />
@@ -153,14 +153,14 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
   return (
     <>
       <div className="min-h-screen">
-        <section className="container-wide py-8">
+        <section className="container-wide pt-8 pb-4">
           <Link href="/" className="text-caption hover:text-[var(--fg)] transition-colors">
             ← Back to feed
           </Link>
         </section>
 
-        <div className="container-wide pb-16">
-          <div className="max-w-5xl mx-auto">
+        <div className="container-wide pb-20">
+          <div className="max-w-7xl mx-auto">
             {/* Media */}
             <div className={`video-container mb-8 ${isVideo ? 'aspect-video' : 'relative flex items-center justify-center'}`} style={!isVideo ? { minHeight: '50vh', maxHeight: '85vh' } : undefined}>
               {mediaError ? (
