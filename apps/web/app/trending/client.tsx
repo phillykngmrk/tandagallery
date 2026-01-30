@@ -22,9 +22,6 @@ export function MostViewedClient() {
           <h1 className="text-display mb-6 fade-in">
             Most Viewed
           </h1>
-          <p className="text-body text-[var(--muted)] max-w-xl fade-in fade-in-delay-1">
-            Top content ranked by view count from source platforms.
-          </p>
         </div>
 
         {/* Time filter buttons */}
