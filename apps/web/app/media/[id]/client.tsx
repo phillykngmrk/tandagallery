@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { mediaApi } from '@/lib/api';
@@ -20,6 +20,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
   const [showReport, setShowReport] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const isLikedRef = useRef(false);
   const [mediaError, setMediaError] = useState(false);
 
   const { data: item, isLoading, isError, error } = useQuery({
@@ -29,6 +30,11 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    isLikedRef.current = isLiked;
+  }, [isLiked]);
 
   // Sync state with fetched data only when item ID changes (not on every refetch)
   const itemId = item?.id;
@@ -41,18 +47,23 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId]);
 
-  // Like mutation
+  // Like mutation (uses ref to avoid stale closure)
   const likeMutation = useMutation({
     mutationFn: async () => {
-      return mediaApi.like(id, isLiked ? 'unlike' : 'like');
+      const wasLiked = isLikedRef.current;
+      return mediaApi.like(id, wasLiked ? 'unlike' : 'like');
     },
     onMutate: async () => {
-      setIsLiked(!isLiked);
-      setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
+      const wasLiked = isLikedRef.current;
+      setIsLiked(!wasLiked);
+      setLikeCount((prev) => (wasLiked ? prev - 1 : prev + 1));
+      return { wasLiked };
     },
-    onError: () => {
-      setIsLiked(isLiked);
-      setLikeCount((prev) => (isLiked ? prev + 1 : prev - 1));
+    onError: (_err, _vars, context) => {
+      if (context) {
+        setIsLiked(context.wasLiked);
+        setLikeCount((prev) => (context.wasLiked ? prev + 1 : prev - 1));
+      }
     },
     onSuccess: (data) => {
       setIsLiked(data.isLiked);

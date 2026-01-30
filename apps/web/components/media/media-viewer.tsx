@@ -37,6 +37,7 @@ export function MediaViewer({
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const likeMutatedRef = useRef(false);
+  const isLikedRef = useRef(false);
   const [showComments, setShowComments] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -48,6 +49,11 @@ export function MediaViewer({
 
   const isOpen = item !== null;
   const isVideo = item?.type === 'video' || item?.type === 'gif';
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    isLikedRef.current = isLiked;
+  }, [isLiked]);
 
   // Reset state when navigating to a different item (by ID), not on every prop reference change
   const itemId = item?.id;
@@ -90,21 +96,26 @@ export function MediaViewer({
     }
   }, [isFullscreen]);
 
-  // Like mutation with optimistic update
+  // Like mutation with optimistic update (uses ref to avoid stale closure)
   const likeMutation = useMutation({
     mutationFn: async () => {
       if (!item) throw new Error('No item');
-      return mediaApi.like(item.id, isLiked ? 'unlike' : 'like');
+      const wasLiked = isLikedRef.current;
+      return mediaApi.like(item.id, wasLiked ? 'unlike' : 'like');
     },
     onMutate: async () => {
+      const wasLiked = isLikedRef.current;
       likeMutatedRef.current = true;
-      setIsLiked(!isLiked);
-      setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
+      setIsLiked(!wasLiked);
+      setLikeCount((prev) => (wasLiked ? prev - 1 : prev + 1));
+      return { wasLiked };
     },
-    onError: () => {
+    onError: (_err, _vars, context) => {
       likeMutatedRef.current = false;
-      setIsLiked(isLiked);
-      setLikeCount((prev) => (isLiked ? prev + 1 : prev - 1));
+      if (context) {
+        setIsLiked(context.wasLiked);
+        setLikeCount((prev) => (context.wasLiked ? prev + 1 : prev - 1));
+      }
     },
     onSuccess: (data) => {
       setIsLiked(data.isLiked);

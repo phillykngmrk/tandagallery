@@ -425,7 +425,9 @@ export class IncrementalScanner {
         }).onConflictDoUpdate({
           target: [mediaItems.threadId, mediaItems.externalItemId],
           set: {
-            // Don't overwrite user-generated counts on re-ingestion
+            // Update metadata on re-ingestion but don't overwrite user-generated counts
+            title: item.title,
+            caption: item.caption,
           },
         }).returning({ id: mediaItems.id });
 
