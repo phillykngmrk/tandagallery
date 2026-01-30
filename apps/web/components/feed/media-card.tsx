@@ -18,8 +18,10 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cardRef, isVisible] = useVisibility<HTMLElement>();
 
+  // Actual .gif files can't play in <video> tags — treat them as images
+  const isActualGif = item.mediaUrl.endsWith('.gif');
   // Gifs and short videos (<10s) autoplay; longer videos play on hover
-  const isPlayable = item.type === 'video' || item.type === 'gif';
+  const isPlayable = (item.type === 'video' || item.type === 'gif') && !isActualGif;
   const isShort = item.type === 'gif' || (item.duration != null && item.duration < 10);
   const shouldAutoplay = isPlayable && isShort;
 

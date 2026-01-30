@@ -48,7 +48,8 @@ export function MediaViewer({
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isOpen = item !== null;
-  const isVideo = item?.type === 'video' || item?.type === 'gif';
+  const isActualGif = item?.mediaUrl?.endsWith('.gif') ?? false;
+  const isVideo = (item?.type === 'video' || item?.type === 'gif') && !isActualGif;
 
   // Keep ref in sync with state
   useEffect(() => {

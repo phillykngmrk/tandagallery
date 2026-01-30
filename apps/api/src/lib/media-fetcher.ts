@@ -7,16 +7,23 @@ const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Geck
 
 const ALLOWED_HOSTS = [
   'jpg6.su',
+  'jpg7.cr',
+  'simp4.selti-delivery.ru',
+  'simp5.selti-delivery.ru',
   'simp6.selti-delivery.ru',
   'abwcandyshop.com',
   'r2.cloudflarestorage.com',
   'redgifs.com',
+  'media.redgifs.com',
   'thumbs4.redgifs.com',
   'thumbs44.redgifs.com',
   'i.redd.it',
   'i.imgur.com',
   'preview.redd.it',
   'v.redd.it',
+  'imagetwist.com',
+  'imgbox.com',
+  'www.imagebam.com',
 ];
 
 /**

@@ -147,7 +147,8 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
     );
   }
 
-  const isVideo = item.type === 'video' || item.type === 'gif';
+  const isActualGif = item.mediaUrl?.endsWith('.gif') ?? false;
+  const isVideo = (item.type === 'video' || item.type === 'gif') && !isActualGif;
 
   return (
     <>
