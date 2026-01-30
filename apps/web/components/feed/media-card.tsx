@@ -157,7 +157,7 @@ export function MediaCard({ item, index }: MediaCardProps) {
           <div className="flex items-center gap-3 text-white/70 text-xs">
             <span className="flex items-center gap-1">
               <EyeIcon className="w-3.5 h-3.5" />
-              {formatCount(item.viewCount)}
+              {formatCount(item.viewCount ?? 0)}
             </span>
             <span className="flex items-center gap-1">
               <CommentIcon className="w-3.5 h-3.5" />

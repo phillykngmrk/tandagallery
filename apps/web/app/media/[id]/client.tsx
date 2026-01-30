@@ -155,7 +155,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
                     <CommentIcon className="w-4 h-4" />
                     {item.commentCount.toLocaleString()} comments
                   </button>
-                  <span>{item.viewCount.toLocaleString()} views</span>
+                  <span>{(item.viewCount ?? 0).toLocaleString()} views</span>
                 </div>
 
                 {/* Action buttons */}
