@@ -153,8 +153,8 @@ export function InfiniteFeed({ type = 'recent', mediaType, period, tag }: Infini
 
   return (
     <>
-      {/* Grid */}
-      <div className="feed-grid stagger-children">
+      {/* Grid — only stagger animate the initial page load */}
+      <div className={`feed-grid ${data?.pages.length === 1 ? 'stagger-children' : ''}`}>
         {allItems.map((item, index) => (
           <MediaCard
             key={item.id}

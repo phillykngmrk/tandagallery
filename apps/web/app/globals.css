@@ -162,6 +162,9 @@ a {
   background: var(--card-bg);
   overflow: hidden;
   cursor: pointer;
+  contain: layout style paint;
+  content-visibility: auto;
+  contain-intrinsic-size: 400px;
 }
 
 .media-card-inner {
@@ -176,11 +179,13 @@ a {
   object-fit: cover;
   width: 100%;
   height: 100%;
-  transition: transform 0.8s var(--ease-out-expo), opacity 0.4s ease;
+  transition: transform 0.6s var(--ease-out-expo), opacity 0.4s ease;
+  will-change: transform, opacity;
+  transform: translateZ(0);
 }
 
 .media-card:hover .media-card-image {
-  transform: scale(1.05);
+  transform: scale(1.05) translateZ(0);
 }
 
 .media-card-overlay {
@@ -599,7 +604,10 @@ a {
     opacity: 0.6;
   }
 
-  /* Disable hover scale on touch */
+  /* Disable hover scale and GPU hints on touch (save memory) */
+  .media-card-image {
+    will-change: auto;
+  }
   .media-card:hover .media-card-image {
     transform: none;
   }

@@ -16,7 +16,7 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [imgSrc, setImgSrc] = useState(item.thumbnailUrl);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [cardRef, isVisible] = useVisibility<HTMLElement>();
+  const [cardRef, isVisible, isNear] = useVisibility<HTMLElement>();
 
   // Actual .gif files can't play in <video> tags — treat them as images
   const isActualGif = item.mediaUrl.endsWith('.gif');
@@ -24,6 +24,9 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
   const isPlayable = (item.type === 'video' || item.type === 'gif') && !isActualGif;
   const isShort = item.type === 'gif' || (item.duration != null && item.duration < 10);
   const shouldAutoplay = isPlayable && isShort;
+
+  // Three-tier preload: far=none, near=metadata, visible+autoplay=auto
+  const preloadStrategy = !isNear ? 'none' : (isVisible && shouldAutoplay) ? 'auto' : 'metadata';
 
   // Play/pause autoplay videos based on visibility
   useEffect(() => {
@@ -92,7 +95,7 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
               setImgSrc(item.thumbnailUrl);
             }
           }}
-          priority={index < 8}
+          priority={index < 6}
           unoptimized
         />
 
@@ -101,7 +104,7 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
           <video
             ref={videoRef}
             className="media-card-image object-cover"
-            src={isVisible ? item.mediaUrl : undefined}
+            src={isNear ? item.mediaUrl : undefined}
             style={{
               position: 'absolute',
               inset: 0,
@@ -110,11 +113,12 @@ export function MediaCard({ item, index, onSelect }: MediaCardProps) {
               opacity: shouldAutoplay || isHovered ? 1 : 0,
               transition: 'opacity 0.2s',
               pointerEvents: 'none',
+              willChange: shouldAutoplay || isHovered ? 'opacity' : 'auto',
             }}
             muted
             loop
             playsInline
-            preload={isVisible ? 'metadata' : 'none'}
+            preload={preloadStrategy}
           />
         )}
 
