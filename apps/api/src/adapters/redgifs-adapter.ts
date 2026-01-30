@@ -23,6 +23,21 @@ export class RedGifsAdapter extends BaseAdapter {
     super(config);
   }
 
+  /** Check if this thread targets a tag search vs a user profile */
+  private isTagSearch(): boolean {
+    return this.config.externalId.startsWith('tag:');
+  }
+
+  /** Get the search query param for tag searches, or username for user searches */
+  private getSearchUrl(count: number, page: number): string {
+    if (this.isTagSearch()) {
+      const tag = this.config.externalId.slice(4); // remove 'tag:' prefix
+      return `https://api.redgifs.com/v2/gifs/search?search_text=${encodeURIComponent(tag)}&order=trending&count=${count}&page=${page}`;
+    }
+    const username = this.config.externalId;
+    return `https://api.redgifs.com/v2/users/${username}/search?order=new&count=${count}&page=${page}`;
+  }
+
   getName(): string {
     return 'redgifs';
   }
@@ -73,9 +88,8 @@ export class RedGifsAdapter extends BaseAdapter {
 
   async validate(): Promise<{ valid: boolean; error?: string }> {
     try {
-      const username = this.config.externalId;
       const data = await this.apiFetch(
-        `https://api.redgifs.com/v2/users/${username}/search?order=new&count=1`
+        this.getSearchUrl(1, 1)
       ) as { total?: number };
 
       if (data.total === undefined) {
@@ -92,9 +106,8 @@ export class RedGifsAdapter extends BaseAdapter {
   }
 
   async getLatestPage(): Promise<PageInfo> {
-    const username = this.config.externalId;
     const data = await this.apiFetch(
-      `https://api.redgifs.com/v2/users/${username}/search?order=new&count=${ITEMS_PER_PAGE}&page=1`
+      this.getSearchUrl(ITEMS_PER_PAGE, 1)
     ) as { total: number; pages: number };
 
     const pages = Math.max(1, data.pages);
@@ -117,9 +130,8 @@ export class RedGifsAdapter extends BaseAdapter {
     // Pass pageNumber directly — no reverse mapping needed.
     const redgifsPage = Math.max(1, pageNumber);
 
-    const username = this.config.externalId;
     const data = await this.apiFetch(
-      `https://api.redgifs.com/v2/users/${username}/search?order=new&count=${ITEMS_PER_PAGE}&page=${redgifsPage}`
+      this.getSearchUrl(ITEMS_PER_PAGE, redgifsPage)
     ) as {
       gifs: RedGifItem[];
       pages: number;
@@ -138,8 +150,7 @@ export class RedGifsAdapter extends BaseAdapter {
 
   // Required by abstract class but not used for API-based adapter
   protected buildPageUrl(pageNumber: number): string {
-    const username = this.config.externalId;
-    return `https://api.redgifs.com/v2/users/${username}/search?order=new&count=${ITEMS_PER_PAGE}&page=${pageNumber}`;
+    return this.getSearchUrl(ITEMS_PER_PAGE, pageNumber);
   }
 
   protected parsePageContent(_html: string, _pageNumber: number): ScrapedItem[] {
