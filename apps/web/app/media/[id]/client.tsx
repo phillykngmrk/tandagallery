@@ -186,7 +186,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
                   playsInline
                   onError={() => setMediaError(true)}
                 >
-                  <source src={item.mediaUrl} type="video/mp4" />
+                  <source src={item.mediaUrl} />
                 </video>
               ) : (
                 <img

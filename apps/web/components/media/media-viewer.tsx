@@ -282,7 +282,7 @@ export function MediaViewer({
           (e.target as HTMLVideoElement).play().catch(() => {});
         }}
       >
-        <source src={item.mediaUrl} type="video/mp4" />
+        <source src={item.mediaUrl} />
       </video>
 
       {/* Video controls — hidden in fullscreen (controlled by hover overlay instead) */}
