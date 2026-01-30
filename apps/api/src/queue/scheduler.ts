@@ -331,7 +331,7 @@ async function schedulePolling(): Promise<void> {
     },
   );
 
-  console.log('[Scheduler] Polling scheduled every 20 minutes');
+  console.log(`[Scheduler] Polling scheduled every ${pollInterval / 60000} minutes`);
 }
 
 /**
