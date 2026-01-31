@@ -193,6 +193,15 @@ export function Header() {
                           >
                             Profile
                           </Link>
+                          {user?.role === 'admin' && (
+                            <Link
+                              href="/admin"
+                              className="block px-4 py-2 text-sm text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--border)]/50 transition-colors"
+                              onClick={() => setShowUserMenu(false)}
+                            >
+                              Admin
+                            </Link>
+                          )}
                           <div className="divider my-1" />
                           <button
                             onClick={handleLogout}
