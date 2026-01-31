@@ -6,13 +6,14 @@ import { feedApi } from '@/lib/api';
 import { MediaCard } from './media-card';
 
 interface InfiniteFeedProps {
-  type?: 'recent' | 'trending';
+  type?: 'recent' | 'trending' | 'search';
   mediaType?: string;
   period?: string;
   tag?: string;
+  searchQuery?: string;
 }
 
-export function InfiniteFeed({ type = 'recent', mediaType, period, tag }: InfiniteFeedProps) {
+export function InfiniteFeed({ type = 'recent', mediaType, period, tag, searchQuery }: InfiniteFeedProps) {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -25,13 +26,17 @@ export function InfiniteFeed({ type = 'recent', mediaType, period, tag }: Infini
     isError,
     error,
   } = useInfiniteQuery({
-    queryKey: ['feed', type, mediaType, period, tag],
+    queryKey: ['feed', type, mediaType, period, tag, searchQuery],
     queryFn: async ({ pageParam }) => {
+      if (type === 'search' && searchQuery) {
+        return feedApi.search({ q: searchQuery, cursor: pageParam, limit: 48 });
+      }
       if (type === 'trending') {
         return feedApi.getTrending({ cursor: pageParam, limit: 48, period });
       }
       return feedApi.getFeed({ cursor: pageParam, limit: 48, type: mediaType, tag });
     },
+    enabled: type !== 'search' || !!searchQuery,
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) =>
       lastPage.pagination.hasMore ? lastPage.pagination.nextCursor : undefined,

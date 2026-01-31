@@ -1,16 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [time, setTime] = useState<string>('');
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Live time display
   useEffect(() => {
@@ -51,6 +55,25 @@ export function Header() {
     { href: '/tags', label: 'Tags' },
   ];
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) return;
+    setShowSearch(false);
+    setSearchQuery('');
+    router.push(`/search?q=${encodeURIComponent(q)}`);
+  };
+
+  const toggleSearch = () => {
+    setShowSearch((prev) => {
+      if (!prev) {
+        setTimeout(() => searchInputRef.current?.focus(), 0);
+      }
+      return !prev;
+    });
+    setSearchQuery('');
+  };
+
   const handleLogout = async () => {
     await logout();
     setShowUserMenu(false);
@@ -89,6 +112,40 @@ export function Header() {
 
             {/* Right side */}
             <div className="flex items-center gap-6">
+              {/* Search */}
+              <div className="flex items-center">
+                {showSearch && (
+                  <form onSubmit={handleSearchSubmit} className="mr-3">
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onBlur={() => {
+                        if (!searchQuery.trim()) setShowSearch(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          setShowSearch(false);
+                          setSearchQuery('');
+                        }
+                      }}
+                      placeholder="Search..."
+                      className="w-40 md:w-56 bg-transparent border-b border-[var(--border)] focus:border-[var(--fg)] text-sm text-[var(--fg)] placeholder:text-[var(--muted)] outline-none py-1 transition-colors"
+                    />
+                  </form>
+                )}
+                <button
+                  onClick={toggleSearch}
+                  className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors"
+                  aria-label="Search"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="M21 21l-4.35-4.35" />
+                  </svg>
+                </button>
+              </div>
               {/* Live time */}
               <span className="live-time hidden lg:block">
                 {time}
