@@ -19,6 +19,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
   const [showComments, setShowComments] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [mediaError, setMediaError] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
 
   const { data: item, isLoading, isError, error } = useQuery({
     queryKey: ['media', id],
@@ -88,6 +89,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
   useEffect(() => {
     if (item) {
       setMediaError(false);
+      setGalleryIndex(0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId]);
@@ -140,8 +142,12 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
     );
   }
 
-  const isActualGif = item.mediaUrl?.endsWith('.gif') ?? false;
-  const isVideo = (item.type === 'video' || item.type === 'gif') && !isActualGif;
+  const hasGallery = item.assets && item.assets.length > 1;
+  const currentAsset = hasGallery ? item.assets[galleryIndex] : null;
+  const displayUrl = currentAsset?.url || item.mediaUrl;
+  const displayType = currentAsset?.type || item.type;
+  const isActualGif = displayUrl?.endsWith('.gif') ?? false;
+  const isVideo = (displayType === 'video' || displayType === 'gif') && !isActualGif;
 
   return (
     <>
@@ -178,6 +184,32 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
               )}
 
             <div className={`video-container ${isVideo ? 'aspect-video' : 'relative flex items-center justify-center'}`} style={!isVideo ? { minHeight: '50vh', maxHeight: '85vh' } : undefined}>
+              {/* Gallery nav arrows */}
+              {hasGallery && galleryIndex > 0 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setGalleryIndex(i => i - 1); setMediaError(false); }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 flex items-center justify-center bg-black/60 hover:bg-black/80 text-white/80 hover:text-white transition-all rounded-full"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeftIcon className="w-5 h-5" />
+                </button>
+              )}
+              {hasGallery && galleryIndex < item.assets.length - 1 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setGalleryIndex(i => i + 1); setMediaError(false); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 flex items-center justify-center bg-black/60 hover:bg-black/80 text-white/80 hover:text-white transition-all rounded-full"
+                  aria-label="Next image"
+                >
+                  <ChevronRightIcon className="w-5 h-5" />
+                </button>
+              )}
+              {/* Gallery counter */}
+              {hasGallery && (
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 px-3 py-1 bg-black/60 text-white/80 text-xs rounded-full backdrop-blur-sm">
+                  {galleryIndex + 1} / {item.assets.length}
+                </div>
+              )}
+
               {mediaError ? (
                 <div className="flex flex-col items-center justify-center gap-4 py-20 text-[var(--muted)]">
                   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -194,7 +226,7 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
               ) : isVideo ? (
                 <video
                   className="w-full h-full object-contain"
-                  src={item.mediaUrl}
+                  src={displayUrl}
                   controls
                   autoPlay
                   loop
@@ -204,8 +236,9 @@ export function MediaDetailClient({ id }: MediaDetailClientProps) {
                 />
               ) : (
                 <img
-                  src={item.mediaUrl}
-                  alt={item.title ? `${item.title} - ${item.type}` : `${item.type === 'gif' ? 'GIF' : item.type === 'video' ? 'Video' : 'Image'} content on T & A Gallery`}
+                  key={displayUrl}
+                  src={displayUrl}
+                  alt={item.title ? `${item.title} - ${item.type}${hasGallery ? ` (${galleryIndex + 1}/${item.assets.length})` : ''}` : `${item.type === 'gif' ? 'GIF' : item.type === 'video' ? 'Video' : 'Image'} content on T & A Gallery`}
                   className="max-w-full max-h-[85vh] object-contain"
                   loading="eager"
                   onError={() => setMediaError(true)}

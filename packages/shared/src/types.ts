@@ -67,12 +67,23 @@ export interface MediaItemSummary {
 }
 
 // Media item detail
+export interface MediaAsset {
+  id: string;
+  url: string;
+  type: 'image' | 'gif' | 'video' | 'thumbnail';
+  duration: number | null;
+  width: number | null;
+  height: number | null;
+  position: number;
+}
+
 export interface MediaItemDetail extends MediaItemSummary {
   description: string | null;
   author: string | null;
   authorUrl: string | null;
   permalink: string;
   tags: string[];
+  assets: MediaAsset[];
   isCommentsLocked: boolean;
   ingestedAt: string;
 }

@@ -2,6 +2,7 @@ import {
   BaseAdapter,
   type SourceConfig,
   type ScrapedItem,
+  type ScrapedAsset,
   type ScanResult,
   type PageInfo,
   registerAdapter,
@@ -172,6 +173,7 @@ export class RedditAdapter extends BaseAdapter {
         width: mediaInfo.width,
         height: mediaInfo.height,
         durationMs: mediaInfo.durationMs,
+        assets: mediaInfo.assets,
         tags: post.link_flair_text ? [post.link_flair_text] : undefined,
         sourceMetrics: {
           likes: post.ups,
@@ -191,6 +193,7 @@ export class RedditAdapter extends BaseAdapter {
     width?: number;
     height?: number;
     durationMs?: number;
+    assets?: ScrapedAsset[];
   } | null {
     // 1. Reddit-hosted video (v.redd.it)
     if (post.is_video && post.media?.reddit_video) {
@@ -232,36 +235,54 @@ export class RedditAdapter extends BaseAdapter {
 
     // 4. Reddit gallery (multiple images)
     if (post.is_gallery && post.media_metadata) {
-      // Take the first image from the gallery
-      for (const [, media] of Object.entries(post.media_metadata)) {
+      // Use gallery_data.items for ordering if available, otherwise iterate metadata
+      const orderedIds: string[] = post.gallery_data?.items?.map(i => i.media_id) ||
+        Object.keys(post.media_metadata);
+
+      const allAssets: ScrapedAsset[] = [];
+      let primaryUrl: string | null = null;
+      let primaryType: 'image' | 'gif' = 'image';
+      let primaryWidth: number | undefined;
+      let primaryHeight: number | undefined;
+
+      for (const mediaId of orderedIds) {
+        const media = post.media_metadata[mediaId];
+        if (!media) continue;
         const m = media as RedditMediaMeta;
         if (m.status !== 'valid') continue;
         const source = m.s;
         if (!source) continue;
 
-        // gif in gallery
-        if (source.gif) {
-          return {
-            type: 'gif',
-            url: source.gif,
-            thumbnail: this.getBestThumbnail(post),
-            width: source.x,
-            height: source.y,
-          };
-        }
+        const assetUrl = source.gif || source.u;
+        const assetType: 'image' | 'gif' = source.gif ? 'gif' : 'image';
+        if (!assetUrl) continue;
 
-        // image in gallery
-        if (source.u) {
-          return {
-            type: 'image',
-            url: source.u,
-            thumbnail: this.getBestThumbnail(post),
-            width: source.x,
-            height: source.y,
-          };
+        allAssets.push({
+          url: assetUrl,
+          type: assetType,
+          width: source.x,
+          height: source.y,
+        });
+
+        // First valid asset becomes the primary media
+        if (!primaryUrl) {
+          primaryUrl = assetUrl;
+          primaryType = assetType;
+          primaryWidth = source.x;
+          primaryHeight = source.y;
         }
       }
-      return null;
+
+      if (!primaryUrl) return null;
+
+      return {
+        type: primaryType,
+        url: primaryUrl,
+        thumbnail: this.getBestThumbnail(post),
+        width: primaryWidth,
+        height: primaryHeight,
+        assets: allAssets.length > 1 ? allAssets : undefined,
+      };
     }
 
     // 5. Direct image/gif URL
@@ -404,6 +425,9 @@ interface RedditPost {
     }>;
   };
   crosspost_parent_list?: RedditPost[];
+  gallery_data?: {
+    items: Array<{ media_id: string; id: number }>;
+  };
 }
 
 interface RedditVideo {
