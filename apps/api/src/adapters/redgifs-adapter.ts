@@ -28,8 +28,17 @@ export class RedGifsAdapter extends BaseAdapter {
     return this.config.externalId.startsWith('tag:');
   }
 
-  /** Get the search query param for tag searches, or username for user searches */
+  /** Check if this thread targets the explore/trending endpoint */
+  private isExplore(): boolean {
+    return this.config.externalId.startsWith('explore:');
+  }
+
+  /** Get the API URL based on thread type */
   private getSearchUrl(count: number, page: number): string {
+    if (this.isExplore()) {
+      const order = this.config.externalId.slice(8) || 'trending'; // remove 'explore:' prefix
+      return `https://api.redgifs.com/v2/gifs/trending?order=${encodeURIComponent(order)}&count=${count}&page=${page}`;
+    }
     if (this.isTagSearch()) {
       const tag = this.config.externalId.slice(4); // remove 'tag:' prefix
       return `https://api.redgifs.com/v2/gifs/search?search_text=${encodeURIComponent(tag)}&order=trending&count=${count}&page=${page}`;
