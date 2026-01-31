@@ -38,7 +38,7 @@ export default function AdminDashboardPage() {
     {
       label: 'Total Media',
       value: isError ? '—' : (stats?.totalMedia ?? '—'),
-      href: '/admin/media',
+      href: '/admin/moderation',
       color: 'text-blue-400',
     },
     {
@@ -50,7 +50,7 @@ export default function AdminDashboardPage() {
     {
       label: 'Total Comments',
       value: isError ? '—' : (stats?.totalComments ?? '—'),
-      href: '/admin/comments',
+      href: '/admin/moderation',
       color: 'text-purple-400',
     },
     {

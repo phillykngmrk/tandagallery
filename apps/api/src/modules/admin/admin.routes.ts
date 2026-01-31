@@ -1,8 +1,8 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { db } from '../../lib/db.js';
-import { sources, threads, ingestRuns, mediaItems, users, comments, reports, blockedMedia, moderationActions } from '@aggragif/db/schema';
-import { eq, desc, and, isNull, sql, count, gte, lte } from 'drizzle-orm';
+import { sources, threads, ingestRuns, mediaItems, users, comments, likes, reports, blockedMedia, moderationActions } from '@aggragif/db/schema';
+import { eq, desc, and, isNull, sql, count, gte, lte, ilike, or } from 'drizzle-orm';
 import { getProxyUrls } from '../../lib/proxy-urls.js';
 import { isR2Enabled, downloadAndUploadToR2 } from '../../lib/r2.js';
 import { buildSourceHeaders, safeFetchMedia, isAllowedUrl } from '../../lib/media-fetcher.js';
@@ -653,6 +653,316 @@ export async function adminRoutes(app: FastifyInstance) {
           : null,
       },
     };
+  });
+
+  // =========================================================================
+  // REPORTS MANAGEMENT
+  // =========================================================================
+
+  /**
+   * GET /admin/reports
+   * List reports filtered by status
+   */
+  app.get('/reports', async (request: FastifyRequest) => {
+    const { status = 'pending', limit = '50' } = request.query as {
+      status?: string;
+      limit?: string;
+    };
+
+    const pageLimit = Math.min(parseInt(limit, 10), 100);
+    const conditions = [eq(reports.status, status)];
+
+    const allReports = await db.select({
+      id: reports.id,
+      targetType: reports.targetType,
+      targetId: reports.targetId,
+      reason: reports.reason,
+      description: reports.description,
+      status: reports.status,
+      reporterId: reports.reporterId,
+      createdAt: reports.createdAt,
+    })
+      .from(reports)
+      .where(and(...conditions))
+      .orderBy(desc(reports.createdAt))
+      .limit(pageLimit);
+
+    // Enrich with reporter info and target info
+    const enriched = await Promise.all(allReports.map(async (report) => {
+      const reporter = await db.query.users.findFirst({
+        where: eq(users.id, report.reporterId),
+        columns: { id: true, username: true },
+      });
+
+      let target: { id: string; title?: string; content?: string; username?: string; thumbnailUrl?: string } | undefined;
+
+      if (report.targetType === 'media_item' || report.targetType === 'media') {
+        const media = await db.query.mediaItems.findFirst({
+          where: eq(mediaItems.id, report.targetId),
+        });
+        if (media) {
+          const urls = getProxyUrls(media.id, media.mediaUrls as { original: string; thumbnail?: string });
+          target = { id: media.id, title: media.title ?? undefined, thumbnailUrl: urls.thumbnailUrl };
+        }
+      } else if (report.targetType === 'comment') {
+        const comment = await db.query.comments.findFirst({
+          where: eq(comments.id, report.targetId),
+          columns: { id: true, body: true },
+        });
+        if (comment) {
+          target = { id: comment.id, content: comment.body };
+        }
+      } else if (report.targetType === 'user') {
+        const u = await db.query.users.findFirst({
+          where: eq(users.id, report.targetId),
+          columns: { id: true, username: true },
+        });
+        if (u) {
+          target = { id: u.id, username: u.username };
+        }
+      }
+
+      return {
+        id: report.id,
+        targetType: report.targetType === 'media_item' ? 'media' : report.targetType,
+        targetId: report.targetId,
+        reason: report.reason,
+        details: report.description,
+        status: report.status,
+        reporter: reporter ? { id: reporter.id, username: reporter.username } : { id: report.reporterId, username: 'unknown' },
+        target,
+        createdAt: report.createdAt,
+      };
+    }));
+
+    const totalCount = await db.select({ count: count() }).from(reports).where(eq(reports.status, status));
+
+    return {
+      items: enriched,
+      pagination: {
+        nextCursor: null,
+        hasMore: false,
+        totalCount: totalCount[0]?.count ?? 0,
+      },
+    };
+  });
+
+  /**
+   * POST /admin/reports/:reportId/resolve
+   * Resolve a report
+   */
+  app.post('/reports/:reportId/resolve', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { reportId } = request.params as { reportId: string };
+    const { resolution, action } = request.body as {
+      resolution: 'resolved_valid' | 'resolved_invalid' | 'dismissed';
+      action?: string;
+    };
+    const user = request.user as { sub: string };
+
+    const report = await db.query.reports.findFirst({
+      where: eq(reports.id, reportId),
+    });
+
+    if (!report) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Report not found' });
+    }
+
+    // Update report status
+    await db.update(reports)
+      .set({
+        status: resolution,
+        resolvedAt: new Date(),
+        resolvedBy: user.sub,
+        updatedAt: new Date(),
+      })
+      .where(eq(reports.id, reportId));
+
+    // If action is 'remove' or 'hide' and target is media, soft-delete it
+    if ((action === 'remove' || action === 'hide') && (report.targetType === 'media_item' || report.targetType === 'media')) {
+      const media = await db.query.mediaItems.findFirst({
+        where: eq(mediaItems.id, report.targetId),
+      });
+
+      if (media) {
+        await db.update(mediaItems)
+          .set({
+            deletedAt: new Date(),
+            isHidden: true,
+            hiddenReason: `report_${action}`,
+            hiddenAt: new Date(),
+            hiddenBy: user.sub,
+          })
+          .where(eq(mediaItems.id, report.targetId));
+
+        await db.insert(blockedMedia)
+          .values({
+            threadId: media.threadId,
+            externalItemId: media.externalItemId,
+            fingerprint: media.fingerprint,
+            reason: `report_${action}`,
+            blockedBy: user.sub,
+          })
+          .onConflictDoNothing();
+
+        await db.insert(moderationActions)
+          .values({
+            moderatorId: user.sub,
+            targetType: 'media_item',
+            targetId: report.targetId,
+            action: action,
+            reason: `report_resolved: ${report.reason}`,
+            previousState: { isHidden: media.isHidden, deletedAt: media.deletedAt },
+            newState: { isHidden: true, deletedAt: new Date() },
+          });
+      }
+    }
+
+    return { success: true };
+  });
+
+  // =========================================================================
+  // USERS MANAGEMENT
+  // =========================================================================
+
+  /**
+   * GET /admin/users
+   * List users with optional search
+   */
+  app.get('/users', async (request: FastifyRequest) => {
+    const { search, cursor, limit = '50' } = request.query as {
+      search?: string;
+      cursor?: string;
+      limit?: string;
+    };
+
+    const pageLimit = Math.min(parseInt(limit, 10), 100);
+    const conditions = [isNull(users.deletedAt)];
+
+    if (search) {
+      conditions.push(
+        or(
+          ilike(users.username, `%${search}%`),
+          ilike(users.email, `%${search}%`),
+          ilike(users.displayName, `%${search}%`),
+        )!
+      );
+    }
+
+    if (cursor) {
+      conditions.push(lte(users.createdAt, new Date(cursor)));
+    }
+
+    const allUsers = await db.select({
+      id: users.id,
+      email: users.email,
+      username: users.username,
+      displayName: users.displayName,
+      role: users.role,
+      isActive: users.isActive,
+      isBanned: users.isBanned,
+      createdAt: users.createdAt,
+      lastLoginAt: users.lastLoginAt,
+    })
+      .from(users)
+      .where(and(...conditions))
+      .orderBy(desc(users.createdAt))
+      .limit(pageLimit + 1);
+
+    const hasMore = allUsers.length > pageLimit;
+    const pageUsers = hasMore ? allUsers.slice(0, pageLimit) : allUsers;
+
+    // Get like and comment counts for each user
+    const enriched = await Promise.all(pageUsers.map(async (u) => {
+      const [likeResult] = await db.select({ count: count() }).from(likes).where(eq(likes.userId, u.id));
+      const [commentResult] = await db.select({ count: count() }).from(comments).where(and(eq(comments.userId, u.id), isNull(comments.deletedAt)));
+
+      return {
+        ...u,
+        likeCount: likeResult?.count ?? 0,
+        commentCount: commentResult?.count ?? 0,
+      };
+    }));
+
+    const [totalResult] = await db.select({ count: count() }).from(users).where(isNull(users.deletedAt));
+
+    return {
+      items: enriched,
+      pagination: {
+        nextCursor: hasMore && pageUsers.length > 0
+          ? pageUsers[pageUsers.length - 1]!.createdAt.toISOString()
+          : null,
+        hasMore,
+        totalCount: totalResult?.count ?? 0,
+      },
+    };
+  });
+
+  /**
+   * POST /admin/users/:userId/moderate
+   * Perform moderation action on a user
+   */
+  app.post('/users/:userId/moderate', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { userId } = request.params as { userId: string };
+    const { action, role } = request.body as {
+      action: 'ban' | 'unban' | 'warn' | 'change_role';
+      role?: string;
+    };
+    const admin = request.user as { sub: string };
+
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!targetUser) {
+      return reply.status(404).send({ error: 'Not Found', message: 'User not found' });
+    }
+
+    const previousState = { role: targetUser.role, isBanned: targetUser.isBanned };
+
+    if (action === 'ban') {
+      await db.update(users)
+        .set({
+          isBanned: true,
+          bannedAt: new Date(),
+          bannedBy: admin.sub,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+    } else if (action === 'unban') {
+      await db.update(users)
+        .set({
+          isBanned: false,
+          bannedAt: null,
+          bannedBy: null,
+          bannedReason: null,
+          bannedUntil: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+    } else if (action === 'change_role' && role) {
+      await db.update(users)
+        .set({
+          role,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+    }
+
+    // Audit log
+    await db.insert(moderationActions)
+      .values({
+        moderatorId: admin.sub,
+        targetType: 'user',
+        targetId: userId,
+        action,
+        reason: `admin_${action}`,
+        previousState,
+        newState: action === 'ban' ? { ...previousState, isBanned: true } :
+                  action === 'unban' ? { ...previousState, isBanned: false } :
+                  action === 'change_role' ? { ...previousState, role } : previousState,
+      });
+
+    return { success: true };
   });
 
   // ── R2 cache backfill ─────────────────────────────────────────────
