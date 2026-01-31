@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { feedQuerySchema, paginationSchema } from '@aggragif/shared';
 import { db } from '../../lib/db.js';
 import { mediaItems, likes } from '@aggragif/db/schema';
-import { desc, eq, and, isNull, gte, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { getProxyUrls } from '../../lib/proxy-urls.js';
 
 // Cursor utilities
@@ -38,33 +38,52 @@ export async function feedRoutes(app: FastifyInstance) {
       ? decodeCursor<{ id: string; createdAt: string }>(query.cursor)
       : null;
 
-    // Build query — sorted by most recently ingested (createdAt)
-    const items = await db.query.mediaItems.findMany({
-      where: (m, { and, eq, isNull, lt }) => and(
-        eq(m.isHidden, false),
-        isNull(m.deletedAt),
-        query.type ? eq(m.mediaType, query.type) : undefined,
-        cursorData ? lt(m.createdAt, new Date(cursorData.createdAt)) : undefined,
-        query.tag ? sql`${mediaItems.tags} @> ${JSON.stringify([query.tag])}::jsonb` : undefined,
-      ),
-      orderBy: (m, { desc }) => [desc(m.createdAt)],
-      limit: query.limit + 1, // Fetch one extra to check hasMore
-      columns: {
-        id: true,
-        mediaType: true,
-        title: true,
-        mediaUrls: true,
-        durationMs: true,
-        width: true,
-        height: true,
-        likeCount: true,
-        commentCount: true,
-        viewCount: true,
-        postedAt: true,
-        createdAt: true,
-        tags: true,
-      },
-    });
+    // Build query — sorted by most recently ingested (createdAt), deduplicated by fingerprint
+    const conditions = [
+      sql`is_hidden = false`,
+      sql`deleted_at IS NULL`,
+    ];
+
+    if (query.type) {
+      conditions.push(sql`media_type = ${query.type}`);
+    }
+    if (cursorData) {
+      conditions.push(sql`created_at < ${cursorData.createdAt}`);
+    }
+    if (query.tag) {
+      conditions.push(sql`tags @> ${JSON.stringify([query.tag])}::jsonb`);
+    }
+
+    const whereClause = sql.join(conditions, sql` AND `);
+    const limitVal = query.limit + 1;
+
+    const rawResult = await db.execute(sql`
+      SELECT * FROM (
+        SELECT DISTINCT ON (fingerprint)
+          id, media_type, title, media_urls, duration_ms, width, height,
+          like_count, comment_count, view_count, posted_at, created_at, tags
+        FROM media_items
+        WHERE ${whereClause}
+        ORDER BY fingerprint, created_at DESC
+      ) deduped
+      ORDER BY created_at DESC
+      LIMIT ${limitVal}
+    `);
+    const items = rawResult.rows as Array<{
+      id: string;
+      media_type: string;
+      title: string | null;
+      media_urls: { original: string; thumbnail?: string };
+      duration_ms: number | null;
+      width: number | null;
+      height: number | null;
+      like_count: number;
+      comment_count: number;
+      view_count: number;
+      posted_at: string | null;
+      created_at: string;
+      tags: string[];
+    }>;
 
     // Check if there are more items
     const hasMore = items.length > query.limit;
@@ -90,22 +109,22 @@ export async function feedRoutes(app: FastifyInstance) {
     // Transform results
     const lastItem = resultItems[resultItems.length - 1];
     const nextCursor = hasMore && lastItem
-      ? encodeCursor({ id: lastItem.id, createdAt: lastItem.createdAt?.toISOString() })
+      ? encodeCursor({ id: lastItem.id, createdAt: lastItem.created_at })
       : null;
 
     return {
       items: resultItems.map(item => ({
         id: item.id,
-        type: item.mediaType,
+        type: item.media_type,
         title: item.title,
-        ...getProxyUrls(item.id, item.mediaUrls as { original: string; thumbnail?: string }),
-        duration: item.durationMs ? Math.floor(item.durationMs / 1000) : null,
+        ...getProxyUrls(item.id, item.media_urls as { original: string; thumbnail?: string }),
+        duration: item.duration_ms ? Math.floor(item.duration_ms / 1000) : null,
         width: item.width,
         height: item.height,
-        likeCount: item.likeCount,
-        commentCount: item.commentCount,
-        viewCount: item.viewCount,
-        publishedAt: item.postedAt?.toISOString() || null,
+        likeCount: item.like_count,
+        commentCount: item.comment_count,
+        viewCount: item.view_count,
+        publishedAt: item.posted_at || null,
         isLiked: userId ? userLikes.has(item.id) : null,
         tags: (item.tags as string[]) || [],
       })),
@@ -151,37 +170,45 @@ export async function feedRoutes(app: FastifyInstance) {
     const cutoffMs = periodMs[period];
     const cutoffDate = cutoffMs ? new Date(Date.now() - cutoffMs) : undefined;
 
-    const conditions = [
-      eq(mediaItems.isHidden, false),
-      isNull(mediaItems.deletedAt),
+    const trendConditions = [
+      sql`is_hidden = false`,
+      sql`deleted_at IS NULL`,
     ];
+
     if (cutoffDate) {
-      conditions.push(gte(mediaItems.postedAt, cutoffDate));
+      trendConditions.push(sql`posted_at >= ${cutoffDate.toISOString()}`);
     }
 
-    // Use offset-based pagination for view-sorted results
     const offset = query.cursor ? parseInt(query.cursor, 10) : 0;
+    const trendWhere = sql.join(trendConditions, sql` AND `);
+    const trendLimit = query.limit + 1;
 
-    const items = await db.query.mediaItems.findMany({
-      where: and(...conditions),
-      orderBy: (m, { desc }) => [desc(m.viewCount), desc(m.likeCount), desc(m.postedAt)],
-      limit: query.limit + 1,
-      offset,
-      columns: {
-        id: true,
-        mediaType: true,
-        title: true,
-        mediaUrls: true,
-        durationMs: true,
-        width: true,
-        height: true,
-        likeCount: true,
-        commentCount: true,
-        viewCount: true,
-        postedAt: true,
-        tags: true,
-      },
-    });
+    const trendResult = await db.execute(sql`
+      SELECT * FROM (
+        SELECT DISTINCT ON (fingerprint)
+          id, media_type, title, media_urls, duration_ms, width, height,
+          like_count, comment_count, view_count, posted_at, tags
+        FROM media_items
+        WHERE ${trendWhere}
+        ORDER BY fingerprint, view_count DESC, like_count DESC
+      ) deduped
+      ORDER BY view_count DESC, like_count DESC, posted_at DESC
+      LIMIT ${trendLimit} OFFSET ${offset}
+    `);
+    const items = trendResult.rows as Array<{
+      id: string;
+      media_type: string;
+      title: string | null;
+      media_urls: { original: string; thumbnail?: string };
+      duration_ms: number | null;
+      width: number | null;
+      height: number | null;
+      like_count: number;
+      comment_count: number;
+      view_count: number;
+      posted_at: string | null;
+      tags: string[];
+    }>;
 
     const hasMore = items.length > query.limit;
     const resultItems = hasMore ? items.slice(0, -1) : items;
@@ -208,16 +235,16 @@ export async function feedRoutes(app: FastifyInstance) {
     return {
       items: resultItems.map(item => ({
         id: item.id,
-        type: item.mediaType,
+        type: item.media_type,
         title: item.title,
-        ...getProxyUrls(item.id, item.mediaUrls as { original: string; thumbnail?: string }),
-        duration: item.durationMs ? Math.floor(item.durationMs / 1000) : null,
+        ...getProxyUrls(item.id, item.media_urls as { original: string; thumbnail?: string }),
+        duration: item.duration_ms ? Math.floor(item.duration_ms / 1000) : null,
         width: item.width,
         height: item.height,
-        likeCount: item.likeCount,
-        commentCount: item.commentCount,
-        viewCount: item.viewCount,
-        publishedAt: item.postedAt?.toISOString() || null,
+        likeCount: item.like_count,
+        commentCount: item.comment_count,
+        viewCount: item.view_count,
+        publishedAt: item.posted_at || null,
         isLiked: userId ? userLikes.has(item.id) : null,
         tags: (item.tags as string[]) || [],
       })),

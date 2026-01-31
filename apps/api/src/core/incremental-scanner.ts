@@ -399,6 +399,21 @@ export class IncrementalScanner {
           continue;
         }
 
+        // Global fingerprint dedup: skip if same content exists in another thread
+        if (item.fingerprint) {
+          const existing = await db.query.mediaItems.findFirst({
+            where: (m, { and, eq, isNull }) => and(
+              eq(m.fingerprint, item.fingerprint!),
+              isNull(m.deletedAt),
+            ),
+            columns: { id: true, threadId: true },
+          });
+          if (existing && existing.threadId !== threadId) {
+            duplicates++;
+            continue;
+          }
+        }
+
         // Insert media item (ON CONFLICT DO NOTHING for idempotency)
         const result = await db.insert(mediaItems).values({
           threadId,
